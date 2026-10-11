@@ -121,6 +121,57 @@ Le `.deb` se construit **sans `fakeroot`** : `dpkg-deb --root-owner-group`
 écrit les fichiers en `root:root`, et la compression `-Zxz -z9` (xz niveau 9)
 donne le plus petit paquet possible.
 
+### Bibliothèques : citées en `Depends`, jamais embarquées
+
+Le paquet ne contient **aucune bibliothèque déjà fournie par Debian** : ni
+GTK, ni GLib, ni la libc, ni quoi que ce soit d'autre des dépôts. Il les
+**cite** dans son champ `Depends`, et c'est `apt` qui les installe depuis les
+dépôts Debian. Deux conséquences : le paquet reste petit, et il ne peut pas
+entrer en conflit avec la copie système d'une bibliothèque.
+
+`ca_package.sh` applique deux règles pendant la construction :
+
+1. **Une bibliothèque système trouvée dans le bundle n'est pas empaquetée.**
+   Chaque `.so` du bundle est lu (`objdump -p`, entrée `SONAME`) : si un paquet
+   Debian installé sur la machine fournit ce *soname*, le fichier est retiré du
+   bundle et seul son paquet est cité. Le journal de construction l'affiche :
+   `not packaged: libc.so.6 (libc.so.6) is provided by the 'libc6' package`.
+2. **`Depends` est calculé depuis le bundle lui-même**, comme le fait
+   `dh_shlibdeps` : pour chaque fichier ELF du bundle (l'exécutable, le moteur
+   Flutter et les greffons), chaque entrée `NEEDED` est résolue
+   (`ldconfig` ou les répertoires standards) puis attribuée à son paquet
+   Debian (`dpkg-query -S`). Le résultat est fusionné avec la base
+   `libc6, libglib2.0-0, libgtk-3-0, libstdc++6` (les noms Debian 12) puis
+   trié et replié en lignes de 74 colonnes.
+
+Garantie d'installabilité : chaque paquet détecté est vérifié avec
+`apt-cache show` ; un paquet que les dépôts de la machine ne connaissent pas
+est **écarté** (avec un avertissement) au lieu de rendre le `.deb`
+ininstalable. La base `libc6, libglib2.0-0, libgtk-3-0, libstdc++6` est
+toujours conservée.
+
+Deux garde-fous :
+
+- Si la construction n'a pas lieu sur **Debian 12**, `Depends` se limite à la
+  base (les noms détectés pourraient ne pas exister dans les dépôts Debian) ;
+  le script le signale.
+- `--keep-system-libs` embarque malgré tout les bibliothèques système du
+  bundle, ce qu'il ne faut **pas** faire pour un paquet Debian (réservé à des
+  essais ou à une distribution hors dépôts). À utiliser aussi si un bundle
+  contenait volontairement une version **plus récente** qu'un paquet système
+  d'une même bibliothèque : dans ce cas la version embarquée serait retirée et
+  c'est celle du système qui serait utilisée.
+
+Vérifications :
+
+```bash
+dpkg-deb -f dist/convertall_1.0.3-1_amd64.deb Depends       # dépendances citées
+dpkg-deb -c dist/convertall_1.0.3-1_amd64.deb | grep lib/   # rien de système
+dpkg-deb -I dist/convertall_1.0.3-1_amd64.deb               # champ par champ
+apt install --dry-run ./dist/convertall_1.0.3-1_amd64.deb   # vérifie la résolution
+ldd /opt/convertall/convertall                              # après installation
+```
+
 ## 3. `.AppImage`
 
 ```bash
@@ -137,6 +188,11 @@ Produit `dist/convertall-<version>-x86_64.AppImage` (≈ 12–16 Mo).
 - L'image est compressée en **zstd niveau 22** (`--comp zstd
   --mksquashfs-opt -Xcompression-level 22`) : bien plus petit que le gzip
   par défaut, et toujours rapide à monter.
+- Comme pour le `.deb`, les bibliothèques système ne sont **pas** embarquées
+  (voir §2) : la machine d'accueil doit fournir la pile GTK
+  (`libgtk-3-0`, `libglib2.0-0`, `libstdc++6`), ce que Debian 12 installe par
+  défaut avec un bureau. Le `.deb` déclare ces dépendances, l'AppImage les
+  suppose présentes.
 - `SOURCE_DATE_EPOCH` est fixé à la date du dernier commit : deux
   constructions du même commit donnent le même fichier.
 
@@ -166,6 +222,8 @@ documentation Flutter (`docs.flutter.dev/perf/app-size`,
 | Compression AppImage | squashfs + zstd 22 | ≈ 40 % de moins qu'un AppImage gzip par défaut |
 | Aucune police embarquée | police système (Roboto/DejaVu) | 0 Ko d'actif, et `--tree-shake-icons` reste efficace |
 | Aucun actif superflu | `pubspec.yaml` ne liste que `units.json`, l'icône 48 px et `assets/help/` | les visuels de magasin (512/1024 px, dossier `assets/launcher/`) restent hors du bundle |
+| Aucune bibliothèque système embarquée | bibliothèques fournies par Debian hors du paquet | le `.deb` ne contient que l'exécutable, le moteur Flutter, les greffons et les données ; GTK/GLib/libc sont installés par `apt` |
+| Dépendances calculées depuis le bundle | `objdump` + `dpkg-query`, comme `dh_shlibdeps` | `Depends` reflète exactement ce que le binaire utilise, donc le paquet s'installe partout sans dépendance manquante ni superflue |
 | Code spécifique à une plateforme | `kIsWeb` / `Platform.isWindows` … | le compilateur retire le code inatteignable pour Linux |
 
 Vérifier la composition d'un bundle :
@@ -242,6 +300,8 @@ gh release delete v1.0.4                     # supprimer une release (brouillon)
 
 Remarques :
 
+- Le champ `Depends` est régénéré à chaque construction : ne pas le modifier
+  à la main dans le script, il vient du bundle lui-même (voir §2).
 - Le paquet `.deb` et l'AppImage n'existent que pour **x86_64** : `arm64` et
   `i686` demandent une machine (ou une compilation croisée) par
   architecture ; `ca_package.sh` refuse de produire un paquet étiqueté

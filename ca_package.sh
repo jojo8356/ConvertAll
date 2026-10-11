@@ -27,12 +27,16 @@ OUT="$ROOT/dist"
 APPIMAGETOOL=${APPIMAGETOOL:-}
 PKG_REV=${PKG_REV:-1}
 MAINTAINER=${MAINTAINER:-"Doug Bell <doug101@bellz.org>"}
+# Libraries Flutter always needs at run time.  They are cited in Depends with
+# their Debian 12 (bookworm) names and are never copied into the package.
+BASE_DEPENDS="libc6 libglib2.0-0 libgtk-3-0 libstdc++6"
 APPIMAGETOOL_TAG=1.9.1
 APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download"
 WORK=
 SKIP_BUILD=0
 KEEP=0
 OBFUSCATE=0
+KEEP_SYSTEM_LIBS=0
 
 usage () {
     cat <<EOF
@@ -52,6 +56,9 @@ Options:
     --skip-build        do not run 'flutter build', reuse the existing bundle
     --obfuscate         build with --obfuscate (smaller Dart code, but stack
                         traces need the symbols kept in build/symbols)
+    --keep-system-libs  also ship the system libraries found in the bundle
+                        (they are normally left to the system and only listed
+                        in the Depends field, never copied into the package)
     --keep              keep the temporary package trees
     -h, --help          show this help
 
@@ -167,6 +174,248 @@ optimize_bundle () {
         strip --strip-unneeded "$lib_file" || true
     done
     echo "Strip done"
+    if [ "$KEEP_SYSTEM_LIBS" -eq 0 ]; then
+        prune_system_libraries
+    fi
+}
+
+# --- Library / dependency helpers -----------------------------------------
+
+# The bundle's own libraries (Flutter's engine, libapp.so, the plugins).
+# Nothing in here ever comes from a Debian package.
+bundle_library_names () {
+    for lib_file in "$BUNDLE"/lib/*.so "$BUNDLE"/lib/*.so.*; do
+        [ -f "$lib_file" ] || continue
+        basename "$lib_file"
+        elf_soname "$lib_file"
+    done
+}
+
+# Return the SONAME of an ELF file, if it has one.
+elf_soname () {
+    objdump -p "$1" 2>/dev/null | sed -n 's/^ *SONAME *//p' | head -n 1
+}
+
+# Return the libraries (DT_NEEDED entries) an ELF file links against.
+elf_needed () {
+    objdump -p "$1" 2>/dev/null | sed -n 's/^ *NEEDED *//p'
+}
+
+# Find 'ldconfig' even when /sbin is not in a normal user's PATH.
+find_ldconfig () {
+    if command -v ldconfig >/dev/null 2>&1; then
+        command -v ldconfig
+    elif [ -x /sbin/ldconfig ]; then
+        echo /sbin/ldconfig
+    elif [ -x /usr/sbin/ldconfig ]; then
+        echo /usr/sbin/ldconfig
+    else
+        return 1
+    fi
+}
+
+# Return the file the dynamic loader would use for the given soname.
+soname_path () {
+    lib_path=
+    ldconfig_bin=$(find_ldconfig 2>/dev/null) || ldconfig_bin=
+    if [ -n "$ldconfig_bin" ]; then
+        lib_path=$("$ldconfig_bin" -p 2>/dev/null \
+            | awk -v s="$1" '$1 == s { print $NF; exit }')
+    fi
+    if [ -z "$lib_path" ]; then
+        for dir in /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /lib64 \
+                /usr/lib64 /lib /usr/lib /usr/local/lib; do
+            if [ -e "$dir/$1" ]; then
+                lib_path="$dir/$1"
+                break
+            fi
+        done
+    fi
+    [ -n "$lib_path" ] || return 1
+    echo "$lib_path"
+}
+
+# Name of the Debian package providing the given soname, or failure.  This is
+# the equivalent of what dh_shlibdeps does, in a portable shell.
+package_for_soname () {
+    # Libraries that live in libc6 or in the compiler runtime: these are the
+    # names used by Debian, they never change with the soname.
+    case "$1" in
+        libc.so.6|libm.so.6|libpthread.so.0|libdl.so.2|librt.so.1|libutil.so.1|\
+            libresolv.so.2)
+            echo libc6
+            return 0
+            ;;
+        libgcc_s.so.1)
+            echo libgcc-s1
+            return 0
+            ;;
+        libstdc++.so.6)
+            echo libstdc++6
+            return 0
+            ;;
+    esac
+    command -v dpkg-query >/dev/null 2>&1 || return 1
+    lib_path=$(soname_path "$1") || return 1
+    # Resolve symlinks first: a -dev package must never end up in Depends.
+    for candidate in "$(readlink -f "$lib_path" 2>/dev/null)" "$lib_path"; do
+        [ -n "$candidate" ] || continue
+        pkg=$(dpkg-query -S "$candidate" 2>/dev/null | head -n 1 \
+            | sed 's/:.*//')
+        case "$pkg" in
+            ''|diversion*|*-dev|*-dbg|*-dbgsym) continue ;;
+            *)
+                echo "$pkg"
+                return 0
+                ;;
+        esac
+    done
+    return 1
+}
+
+# Remove from the bundle the libraries that Debian already provides: they are
+# never copied into the packages, only cited in the Depends field, so that
+# the packages stay small and no two copies can conflict.
+prune_system_libraries () {
+    pruned=
+    for lib_file in "$BUNDLE"/lib/*.so "$BUNDLE"/lib/*.so.*; do
+        [ -f "$lib_file" ] || continue
+        lib_soname=$(elf_soname "$lib_file")
+        [ -n "$lib_soname" ] || continue
+        pkg=$(package_for_soname "$lib_soname" 2>/dev/null) || continue
+        [ -n "$pkg" ] || continue
+        rm -f "$lib_file"
+        pruned="$pruned $(basename "$lib_file")"
+        echo "  not packaged: $(basename "$lib_file") ($lib_soname)" \
+            "is provided by the '$pkg' package"
+    done
+    if [ -z "$pruned" ]; then
+        echo "  no system library found in the bundle"
+    else
+        echo "  system libraries are only listed as dependencies"
+    fi
+}
+
+# Packages needed at run time, discovered from the ELF files of the bundle
+# (the equivalent of dh_shlibdeps).  The libraries themselves are NOT
+# included: Debian installs them from its own repositories.
+bundle_depends () {
+    bundled=$(bundle_library_names)
+    everything=
+    for elf_file in "$BUNDLE/convertall" "$BUNDLE"/lib/*.so "$BUNDLE"/lib/*.so.*; do
+        [ -f "$elf_file" ] || continue
+        for soname in $(elf_needed "$elf_file"); do
+            case " $bundled " in
+                *" $soname "*) continue ;;    # provided by the bundle itself
+            esac
+            case "$everything" in
+                *"|$soname|"*) continue ;;    # already handled
+            esac
+            everything="$everything|$soname|"
+            if pkg=$(package_for_soname "$soname" 2>/dev/null) && [ -n "$pkg" ];
+            then
+                echo "$pkg"
+            else
+                echo "  warning: no Debian package found for $soname" \
+                    "(needed by ${elf_file##*/})" 1>&2
+            fi
+        done
+    done
+}
+
+# Wrap a list of packages into a Debian control field value.
+format_depends () {
+    awk -v max=74 '
+        {
+            if (held == "") { held = $1; next }
+            if (length(held) + 2 + length($1) <= max) {
+                held = held ", " $1
+                next
+            }
+            printf "%s%s,\n", (printed ? " " : ""), held
+            printed = 1
+            held = $1
+        }
+        END {
+            if (held != "") printf "%s%s\n", (printed ? " " : ""), held
+        }'
+}
+
+# Check that the host is the distribution the packages are built for.
+host_is_target () {
+    [ -r /etc/os-release ] || return 1
+    # shellcheck disable=SC1091
+    id=$(sed -n 's/^ID=//p' /etc/os-release | head -n 1 | tr -d '"')
+    ver=$(sed -n 's/^VERSION_ID=//p' /etc/os-release | head -n 1 | tr -d '"')
+    [ "$id" = debian ] && [ "$ver" = 12 ]
+}
+
+# True when the package is one of the always-required baseline packages.
+is_baseline () {
+    for base in $BASE_DEPENDS; do
+        if [ "$base" = "$1" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# True when apt has downloaded package lists (used to check the dependencies
+# against what the repositories actually provide).
+apt_has_lists () {
+    for list_file in /var/lib/apt/lists/*Packages* \
+            /var/lib/apt/lists/*_Packages.lz4; do
+        if [ -e "$list_file" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# The Depends list of the Debian package: the baseline (the libraries Flutter
+# always needs, cited with their Debian 12 / bookworm names) plus every
+# package the bundle really links against, looked up on the build machine.
+#
+# The libraries themselves are never copied into the package: apt installs
+# them from the Debian repositories.  A package the repositories do not know
+# is dropped, so that the .deb always stays installable.
+debian_depends () {
+    if host_is_target; then
+        # Warnings go to the terminal, package names are captured.
+        detected=$(bundle_depends)
+    else
+        echo "  note: this host is not Debian 12, so Depends is limited to" \
+            "the baseline: $BASE_DEPENDS" 1>&2
+        detected=$BASE_DEPENDS
+    fi
+    printf '%s\n' $detected | sort -u > "$WORK/depends.detected"
+    : > "$WORK/depends.checked"
+    validate=0
+    if command -v apt-cache >/dev/null 2>&1 && apt_has_lists; then
+        validate=1
+    else
+        echo "  note: the apt package lists are unavailable, the detected" \
+            "dependencies are cited without being verified" 1>&2
+    fi
+    while read -r pkg; do
+        [ -n "$pkg" ] || continue
+        if is_baseline "$pkg"; then
+            continue
+        fi
+        if [ "$validate" -eq 1 ] \
+                && ! apt-cache show "$pkg" >/dev/null 2>&1; then
+            echo "  warning: '$pkg' is not in the apt repositories of this" \
+                "host, so it is not cited in Depends" 1>&2
+            continue
+        fi
+        echo "$pkg" >> "$WORK/depends.checked"
+    done < "$WORK/depends.detected"
+    {
+        for pkg in $BASE_DEPENDS; do
+            echo "$pkg"
+        done
+        cat "$WORK/depends.checked"
+    } | sort -u | format_depends
 }
 
 desktop_file () {
@@ -241,13 +490,19 @@ make_deb () {
     copyright_file "$deb_root/usr/share/doc/convertall/copyright"
     changelog_file "$deb_root/usr/share/doc/convertall/changelog.gz"
     installed_size=$(du -sk --exclude=DEBIAN "$deb_root" | cut -f 1)
+    # The libraries ConvertAll needs are *cited* here and never shipped: they
+    # come from the Debian repositories, which apt installs as dependencies.
+    # The list is discovered from the bundle itself (see debian_depends).
+    echo "  dependencies cited in the package (none is shipped inside it):"
+    debian_depends_text=$(debian_depends)
+    printf '    %s\n' "$debian_depends_text"
     cat > "$deb_root/DEBIAN/control" <<EOF
 Package: convertall
 Version: $APP_VERSION-$PKG_REV
 Architecture: amd64
 Maintainer: $MAINTAINER
 Installed-Size: $installed_size
-Depends: libc6 (>= 2.31), libglib2.0-0 (>= 2.50), libgtk-3-0 (>= 3.24), libstdc++6 (>= 11)
+Depends: $debian_depends_text
 Recommends: fonts-dejavu-core
 Section: science
 Priority: optional
@@ -407,6 +662,7 @@ while [ $# -gt 0 ]; do
         --skip-build) SKIP_BUILD=1; shift ;;
         --obfuscate) OBFUSCATE=1; shift ;;
         --keep) KEEP=1; shift ;;
+        --keep-system-libs) KEEP_SYSTEM_LIBS=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown option '$1'" ;;
     esac

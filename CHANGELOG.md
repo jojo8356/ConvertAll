@@ -29,6 +29,11 @@
 - The release build now uses `--split-debug-info` (symbols kept out of the
   bundle), strips the engine libraries, compresses the Debian package with
   `xz -9` and the AppImage with zstd level 22.
+- The packages no longer ship any library that Debian already provides: the
+  system libraries found in the build bundle are left out and only listed in
+  the package's Depends field, which is now discovered from the bundle itself
+  (objdump plus dpkg-query, like dh_shlibdeps) and checked against the apt
+  repositories so that the package stays installable.
 
 ---
 ## March 11, 2026 - Release 1.0.3
