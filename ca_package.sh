@@ -300,12 +300,14 @@ prune_system_libraries () {
 # (the equivalent of dh_shlibdeps).  The libraries themselves are NOT
 # included: Debian installs them from its own repositories.
 bundle_depends () {
-    bundled=$(bundle_library_names)
+    # The names are separated by spaces (and not by newlines) so that the
+    # pattern below can match any of them, not only the last one.
+    bundled=" $(bundle_library_names | tr '\n' ' ') "
     everything=
     for elf_file in "$BUNDLE/convertall" "$BUNDLE"/lib/*.so "$BUNDLE"/lib/*.so.*; do
         [ -f "$elf_file" ] || continue
         for soname in $(elf_needed "$elf_file"); do
-            case " $bundled " in
+            case "$bundled" in
                 *" $soname "*) continue ;;    # provided by the bundle itself
             esac
             case "$everything" in
@@ -316,8 +318,12 @@ bundle_depends () {
             then
                 echo "$pkg"
             else
-                echo "  warning: no Debian package found for $soname" \
-                    "(needed by ${elf_file##*/})" 1>&2
+                # Only reached for a library that is neither in the bundle nor
+                # provided by an installed Debian package: the package would
+                # be missing a dependency, so say it loudly.
+                echo "  warning: $soname (needed by ${elf_file##*/}) is not" \
+                    "provided by any Debian package, so it can not be cited" \
+                    "in Depends" 1>&2
             fi
         done
     done

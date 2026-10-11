@@ -176,6 +176,18 @@ est **écarté** (avec un avertissement) au lieu de rendre le `.deb`
 ininstalable. La base `libc6, libglib2.0-0, libgtk-3-0, libstdc++6` est
 toujours conservée.
 
+Les bibliothèques du bundle (le moteur Flutter, `libapp.so`, les greffons
+`*_plugin.so`) sont reconnues comme telles et **ne déclenchent aucun
+avertissement** : elles voyagent avec l'application, aucun paquet Debian ne
+les fournit. Un avertissement
+`warning: <soname> (needed by <fichier>) is not provided by any Debian
+package` signale au contraire une bibliothèque **extérieure** que le `.deb`
+ne peut pas citer : le paquet serait incomplet sur une machine propre. Dans
+ce cas, installez le paquet Debian correspondant sur la machine de
+construction (la détection le trouvera à la prochaine construction) ou, s'il
+n'existe pas dans les dépôts, ajoutez-le à la variable `BASE_DEPENDS` en tête
+de `ca_package.sh`.
+
 Deux garde-fous :
 
 - Si la construction n'a pas lieu sur **Debian 12**, `Depends` se limite à la
