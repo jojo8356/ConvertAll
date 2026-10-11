@@ -65,12 +65,12 @@ class _SettingEditState extends State<SettingEdit> {
       }
       if (!mounted) return true;
       final model = Provider.of<UnitController>(context, listen: false);
-      model.generalUpdate();
+      final themeModel = Provider.of<ThemeModel>(context, listen: false);
       if (effectiveLanguage != origLanguage) {
         // The unit type names are translated, they must be re-read.
         await model.reloadData();
       }
-      final themeModel = Provider.of<ThemeModel>(context, listen: false);
+      model.generalUpdate();
       themeModel.updateTheme();
       return true;
     }
@@ -145,7 +145,7 @@ class _SettingEditState extends State<SettingEdit> {
                               child: Text(_notationName(context, item)),
                             ),
                         ],
-                        value: prefs.getInt('result_notation') ?? 0,
+                        initialValue: prefs.getInt('result_notation') ?? 0,
                         decoration: InputDecoration(
                           labelText: context.l10n.resultNotation,
                           helperText:
@@ -272,7 +272,7 @@ class _SettingEditState extends State<SettingEdit> {
                               child: Text(_languageName(context, code)),
                             ),
                         ],
-                        value: prefs.getString('language') ?? 'system',
+                        initialValue: prefs.getString('language') ?? 'system',
                         decoration: InputDecoration(
                           labelText: context.l10n.language,
                           helperText: context.l10n.languageHelp,
@@ -406,7 +406,8 @@ class BoolFormField extends FormField<bool> {
                            crossAxisAlignment: CrossAxisAlignment.start,
                            children: <Widget>[
                              Text(
-                               heading ?? context.l10n.booleanValue,
+                               heading ??
+                                   state.context.l10n.booleanValue,
                                style: theme.textTheme.bodyMedium?.copyWith(
                                  fontWeight: FontWeight.w600,
                                ),

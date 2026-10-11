@@ -53,9 +53,18 @@ class UnitController extends ChangeNotifier {
 
   /// Reload the unit data, to update the translated type names.
   Future<void> reloadData() async {
+    // An active type filter must survive the reload: unit names do not change
+    // with the language, but the type names used to filter do.
+    final filteredName = unitData.filteredUnits.isEmpty
+        ? null
+        : unitData.filteredUnits.first.name;
     unitData.reset();
     await unitData.loadData();
     sortParam.unitStableSort(unitData.unitList);
+    if (filteredName != null) {
+      final unit = unitData.unitMatch(filteredName);
+      if (unit != null) unitData.filterUnits(unit.type);
+    }
     currentUnit = null;
     highlightedTableUnit = null;
     updateUnitCalc();

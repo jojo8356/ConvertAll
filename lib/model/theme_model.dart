@@ -15,7 +15,6 @@
 //     the swap button that joins the two sides.
 //   * Contrast: every pair below meets WCAG AA (>= 4.5:1) for body text.
 
-import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import '../main.dart' show prefs;
 
