@@ -1,0 +1,11 @@
+# Configuration de la génération des traductions (flutter gen-l10n).
+# Les fichiers .arb de lib/l10n/ produisent lib/l10n/app_localizations.dart,
+# généré automatiquement par « flutter pub get » (pubspec.yaml: generate: true).
+# Le fichier généré n'est pas versionné (voir .gitignore).
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+# AppLocalizations.of(context) renvoie une valeur non nulle : pas de « ! »
+# à écrire dans les vues.
+nullable-getter: false

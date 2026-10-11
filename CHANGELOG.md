@@ -1,5 +1,54 @@
 
 ---
+## October 11, 2026 - Release 1.0.4
+
+### Updates:
+- New interface built on a documented design direction ("Precision
+  Instrument", see DESIGN.md): a neutral instrument surface, one accent per
+  side of the conversion (azure for "From", indigo for "To"), semantic colors
+  reserved for feedback, tabular figures for every number and fully
+  documented light and dark palettes that meet WCAG AA contrast.
+- The conversion screen now shows the unit panels, the unit list and the
+  values in a single column, with a sticky sortable table header, keyboard
+  hints in the footer and non-blocking status feedback instead of error
+  dialogs.
+- Keyboard use is visible throughout: arrow keys browse the unit list,
+  Enter picks the highlighted unit, Tab moves between the fields, and the
+  highlighted row is drawn with the accent color.
+- Reworked Help view, Settings, Bases and Fractions views with the same
+  spacing, typography and panel system; the Help view is now readable at
+  780 px with the same panel style as the rest of the app.
+- The Desktop Entry is now named org.bellz.convertall.desktop, matching the
+  AppStream component ID and the metadata file name, so that AppStream-aware
+  tools (software centres, appimagetool) find the application metadata.
+- New application icon (two swap arrows, azure and indigo, on navy) replacing
+  the old rainbow icon; regenerated for Linux, Android, iOS, Windows, macOS
+  and the web, including the hicolor icon theme used by the Linux packages.
+
+- The interface is now translated: English and French, selected in
+  Settings > Appearance > Language ("Follow system" by default, so the app
+  starts in the language of the desktop session). Follows the standard
+  Flutter setup: `l10n.yaml`, `lib/l10n/app_en.arb`, `lib/l10n/app_fr.arb`
+  and the generated `AppLocalizations` class.
+- The Help pages and the unit type names are translated too:
+  `assets/help/fr/` for the 11 help pages and `assets/units_fr.json` for the
+  52 unit types (unit names and abbreviations stay unchanged, since they are
+  the values typed into the conversion fields).
+
+### Packaging:
+- New `ca_package.sh` tool that builds a size-optimized Linux release bundle
+  and packages it as a Debian package and an AppImage for Debian GNU/Linux 12
+  (bookworm) x86_64, plus the full release procedure (see PACKAGING.md).
+- The release build now uses `--split-debug-info` (symbols kept out of the
+  bundle), strips the engine libraries, compresses the Debian package with
+  `xz -9` and the AppImage with zstd level 22.
+- The packages no longer ship any library that Debian already provides: the
+  system libraries found in the build bundle are left out and only listed in
+  the package's Depends field, which is now discovered from the bundle itself
+  (objdump plus dpkg-query, like dh_shlibdeps) and checked against the apt
+  repositories so that the package stays installable.
+
+---
 ## March 11, 2026 - Release 1.0.3
 
 ### Updates:

@@ -1,0 +1,195 @@
+{
+  "appSubtitle": "Unit conversion",
+  "versionLabel": "Version {version}",
+  "@versionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "menu": "Menu",
+  "clearUnitEntries": "Clear unit entries",
+  "filterUnitsByType": "Filter units by type",
+  "stopFiltering": "Stop filtering",
+  "recentlyUsedUnits": "Recently used units",
+  "swapEntries": "Swap the From and To entries",
+  "keyBrowse": "browse",
+  "keyUseUnit": "use unit",
+  "keyNextField": "next field",
+  "filteredListHint": "Filtered list — click a unit to apply it",
+  "clickUnitHint": "Click a unit to replace the highlighted one",
+  "statusTypeUnit": "Type a unit above, or pick one from the list below.",
+  "statusNotRecognized": "That unit name is not recognized.",
+  "statusNotRecognizedDetail": "Check the spelling or choose a unit from the list",
+  "statusDifferentUnits": "These units measure different things.",
+  "statusCompatible": "Units are compatible — the conversion updates as you type.",
+  "reduceTo": "reduce to: {units}",
+  "@reduceTo": {
+    "placeholders": {
+      "units": {
+        "type": "String"
+      }
+    }
+  },
+  "sectionConversionTools": "Conversion tools",
+  "settingsTitle": "Settings",
+  "settingsHint": "Notation, startup and display",
+  "basesTitle": "Bases",
+  "basesHint": "Decimal, hex, octal and binary",
+  "fractionsTitle": "Fractions",
+  "fractionsHint": "Closest simple fractions",
+  "sectionHelp": "Help",
+  "helpViewTitle": "Help view",
+  "aboutTitle": "About ConvertAll",
+  "aboutLegalese": "©2026 by Douglas W. Bell",
+  "quit": "Quit",
+  "fromUnit": "From unit",
+  "toUnit": "To unit",
+  "fromUnitLabel": "From Unit",
+  "toUnitLabel": "To Unit",
+  "hintCombinedUnit": "e.g. ft * lbf / hr",
+  "fromValue": "From value",
+  "toValue": "To value",
+  "copyTheResult": "Copy the result",
+  "noUnitSet": "[no unit set]",
+  "copy": "Copy",
+  "copied": "Copied!",
+  "validLabel": "valid",
+  "invalidLabel": "invalid",
+  "emptyLabel": "empty",
+  "loadingUnitsTitle": "Loading unit data",
+  "loadingUnitsMessage": "The unit list is read from the data file at startup.",
+  "noUnitsInCategoryTitle": "No units in this category",
+  "noUnitsInCategoryMessage": "Use the filter button in the toolbar to show every category again.",
+  "noMatchingUnitsTitle": "No matching units",
+  "noMatchingUnitsMessage": "Try a shorter search, or clear the field to browse the full list.",
+  "columnUnitName": "Unit name",
+  "columnUnitType": "Unit type",
+  "columnComments": "Comments",
+  "sortByTitle": "Sort by {title}",
+  "@sortByTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "back": "Back",
+  "baseConversionsTitle": "Base Conversions",
+  "numberBases": "Number bases",
+  "numberBasesHelp": "Type in any field; the other bases update instantly.",
+  "bitDepthValue": "Bit depth:  {value}",
+  "@bitDepthValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "baseLabel": "{label}  ·  base {base}",
+  "@baseLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "base": {
+        "type": "int"
+      }
+    }
+  },
+  "decimalLabel": "Decimal",
+  "hexLabel": "Hex",
+  "octalLabel": "Octal",
+  "binaryLabel": "Binary",
+  "invalidEntry": "invalid entry",
+  "baseParamsTitle": "Base conversion parameters",
+  "bitDepth": "Bit depth",
+  "numberOfBits": "Number of bits",
+  "twosComplementHelp": "Interprets the highest bit as the sign of the value",
+  "cancel": "Cancel",
+  "apply": "Apply",
+  "fractionConversionsTitle": "Fraction Conversions",
+  "fractionFinder": "Fraction finder",
+  "fractionFinderHelp": "Find the simple fractions that are closest to a decimal value.",
+  "valueToConvert": "Value to convert",
+  "powersOfTwo": "Powers of two",
+  "powersOfTwoTooltip": "Limit the denominators to powers of two (1/2, 1/4, 1/8 ...)",
+  "expression": "Expression",
+  "expressionHint": "e.g. 0.375 or 3 / 8",
+  "invalidValue": "Invalid value",
+  "noResultTitle": "No result yet",
+  "noResultMessage": "Enter a value above to see the closest simple fractions.",
+  "fractionColumn": "Fraction",
+  "helpTitle": "Help - ConvertAll",
+  "previous": "Previous",
+  "next": "Next",
+  "home": "Home",
+  "close": "Close",
+  "combineAnyUnits": "Combine any units",
+  "startupTipIntro": "ConvertAll pairs any units you type, not only the ones offered in the lists. For example:",
+  "tipMetersPerSecond": "meters per second",
+  "tipFootPounds": "foot-pounds (torque)",
+  "tipSquareInches": "square inches",
+  "tipCubicMeters": "cubic meters",
+  "showTipAtStartup": "Show this tip at startup",
+  "gotIt": "Got it",
+  "saveAndGoBack": "Save and go back",
+  "saveAndClose": "Save and close",
+  "closeWithoutSaving": "Close without saving",
+  "numberFormatting": "Number formatting",
+  "notationShort": "Short",
+  "notationFixed": "Fixed",
+  "notationScientific": "Scientific",
+  "notationEngineering": "Engineering",
+  "resultNotation": "Result notation",
+  "resultNotationHelp": "How converted values are written (short, fixed, scientific or engineering)",
+  "decimalPlaces": "Number of decimal places",
+  "decimalPlacesHelp": "Between 0 and 9 digits after the decimal point",
+  "mustBeInteger": "Must be an integer",
+  "mustBeBetween0And9": "Must be between 0 and 9",
+  "startupAndRecentUnits": "Startup and recent units",
+  "loadRecentHeading": "Load the most recent units at startup",
+  "loadRecentSubheading": "Restores the last conversion when the app opens",
+  "recentUnitsCount": "Number of saved recent units",
+  "recentUnitsCountHelp": "Shown in the recent units menu",
+  "mustBeZeroOrGreater": "Must be greater than or equal to zero",
+  "showTipsHeading": "Show the tips dialog at startup",
+  "showTipsSubheading": "Explains how units can be combined",
+  "appearance": "Appearance",
+  "language": "Language",
+  "languageHelp": "Takes effect when the settings are saved",
+  "languageSystem": "Follow system",
+  "languageEnglish": "English",
+  "languageFrench": "Français",
+  "darkTheme": "Dark theme",
+  "darkThemeSubheading": "Switches the whole interface to the dark palette",
+  "viewScale": "App view scale ratio",
+  "viewScaleHelp": "Valid range is 0.25 to 4.0",
+  "mustBeNumber": "Must be a number",
+  "window": "Window",
+  "windowGeoHeading": "Remember window position and size",
+  "windowGeoSubheading": "Reopens the window where it was closed",
+  "titleBarHeading": "Show the window title bar",
+  "titleBarSubheading": "Turn off for a cleaner look under Wayland",
+  "booleanValue": "Boolean Value",
+  "statusConverting": "Converting  (reduce to:  {units} )",
+  "@statusConverting": {
+    "placeholders": {
+      "units": {
+        "type": "String"
+      }
+    }
+  },
+  "statusIncompatible": "Units are not compatible ( {from}  vs.  {to} )",
+  "@statusIncompatible": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  }
+}

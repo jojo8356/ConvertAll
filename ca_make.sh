@@ -71,19 +71,29 @@ case "$1" in
         if [ "$(id -u)" = "0" ]; then
             misc_error "'build' should not be run as sudo or root"
         fi
-        echo "Downloading Flutter..."
-        flutter_site="https://storage.googleapis.com"
-        flutter_path="/flutter_infra_release/releases/stable/linux/"
         flutter_file="flutter_linux_3.41.4-stable.tar.xz"
-        curl -O $flutter_site$flutter_path$flutter_file \
-            || misc_error "Error:  Could not download Flutter"
-        echo
-        echo "Extracting Flutter..."
-        tar -xf $flutter_file \
-            || misc_error "Error:  Could not extract Flutter archive"
-        echo "Extract done"
-        echo
+        if [ ! -x "`pwd`/flutter/bin/flutter" ]; then
+            echo "Downloading Flutter..."
+            flutter_site="https://storage.googleapis.com"
+            flutter_path="/flutter_infra_release/releases/stable/linux/"
+            curl -O $flutter_site$flutter_path$flutter_file \
+                || misc_error "Error:  Could not download Flutter"
+            echo
+            echo "Extracting Flutter..."
+            tar -xf $flutter_file \
+                || misc_error "Error:  Could not extract Flutter archive"
+            echo "Extract done"
+            # The archive is of no use once extracted and takes ~1GB of disk.
+            rm -f "$flutter_file" && echo "Removed $flutter_file"
+            echo
+        else
+            echo "Flutter is already installed in ./flutter"
+            echo
+        fi
         export PATH="$PATH:`pwd`/flutter/bin"
+        # pub get also generates lib/l10n/app_localizations.dart (see l10n.yaml
+        # and pubspec.yaml: generate: true); the generated file is not versioned.
+        flutter pub get || misc_error "Error - flutter pub get failed"
         flutter build linux --release || misc_error "Error - build failed"
         echo
         echo "ConvertAll build successful"
@@ -105,7 +115,8 @@ case "$1" in
             || misc_error "Could not create '/opt/convertall' directory"
         cp -pr `pwd`/build/linux/x64/release/bundle/* /opt/convertall/. \
             || misc_error "Could not copy files to '/opt/convertall' directory"
-        cp -p `pwd`/convertall.desktop `pwd`/convertall_icon_64.png /opt/convertall/.
+        cp -p `pwd`/org.bellz.convertall.desktop `pwd`/convertall_icon_64.png \
+            /opt/convertall/.
         echo "Copy done"
         echo
         echo "Creating symlinks..."
@@ -113,7 +124,7 @@ case "$1" in
             || misc_error \
             "Could not create '/usr/local/share/applications' directory"
         ln -sf /opt/convertall/convertall /usr/local/bin/. \
-            && ln -sf /opt/convertall/convertall.desktop \
+            && ln -sf /opt/convertall/org.bellz.convertall.desktop \
             /usr/local/share/applications/. \
             || misc_error "Could not create symlinks"
         echo "Symlinks created"
@@ -136,9 +147,13 @@ case "$1" in
         rm /usr/local/bin/convertall \
             && echo "Removed /usr/local/bin/convertall (link)" \
             || echo "Failed to remove /usr/local/bin/convertall (link)"
-        rm /usr/local/share/applications/convertall.desktop \
-            && echo "Removed convertall.desktop (link)" \
-            || echo "Failed to remove convertall.desktop (link)"
+        rm -f /usr/local/share/applications/org.bellz.convertall.desktop \
+            && echo "Removed org.bellz.convertall.desktop (link)" \
+            || echo "Failed to remove org.bellz.convertall.desktop (link)"
+        # Also remove the desktop file name used by older versions.
+        rm -f /usr/local/share/applications/convertall.desktop \
+            && echo "Removed convertall.desktop (old link)" \
+            || echo "Failed to remove convertall.desktop (old link)"
         ;;
 
     *)
@@ -149,6 +164,9 @@ case "$1" in
         echo "    $ sudo ./ca_make.sh depends"
         echo "    $ ./ca_make.sh build"
         echo "    $ sudo ./ca_make.sh install"
+        echo
+        echo "To build a Debian package or an AppImage, see"
+        echo "./ca_package.sh and PACKAGING.md instead."
         echo
         exit 1
         ;;

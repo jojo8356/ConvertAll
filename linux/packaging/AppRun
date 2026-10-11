@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# AppRun, entry point used inside the ConvertAll AppImage.
+# ConvertAll, a versatile unit conversion program.
+# Copyright (c) 2026, Douglas W. Bell.
+# Free software, GPL v2 or later.
+
+HERE=$(dirname "$(readlink -f -- "$0")")
+
+# The main executable links to ./lib through an $ORIGIN rpath, so this is only
+# a safety net for shells or launchers that sanitize the environment.
+export LD_LIBRARY_PATH="$HERE/usr/bin/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+exec "$HERE/usr/bin/convertall" "$@"

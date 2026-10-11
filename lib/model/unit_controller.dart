@@ -5,8 +5,11 @@
 
 // foundation.dart includes [ChangeNotifier].
 import 'dart:math';
+import 'dart:ui' show Locale;
 import 'package:eval_ex/expression.dart';
 import 'package:flutter/foundation.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/l10n.dart';
 import '../main.dart' show prefs;
 import 'unit_data.dart';
 import 'unit_group.dart';
@@ -46,6 +49,25 @@ class UnitController extends ChangeNotifier {
     } else {
       notifyListeners();
     }
+  }
+
+  /// Reload the unit data, to update the translated type names.
+  Future<void> reloadData() async {
+    // An active type filter must survive the reload: unit names do not change
+    // with the language, but the type names used to filter do.
+    final filteredName = unitData.filteredUnits.isEmpty
+        ? null
+        : unitData.filteredUnits.first.name;
+    unitData.reset();
+    await unitData.loadData();
+    sortParam.unitStableSort(unitData.unitList);
+    if (filteredName != null) {
+      final unit = unitData.unitMatch(filteredName);
+      if (unit != null) unitData.filterUnits(unit.type);
+    }
+    currentUnit = null;
+    highlightedTableUnit = null;
+    updateUnitCalc();
   }
 
   /// Update all listeners to handle settings changes.
@@ -99,6 +121,19 @@ class UnitController extends ChangeNotifier {
     updateUnitCalc();
   }
 
+  /// Exchange the from and to entries, including the value direction.
+  void swapUnits() {
+    final fromText = fromUnit.toString();
+    final toText = toUnit.toString();
+    fromUnit.parse(toText);
+    toUnit.parse(fromText);
+    fromValueEntered = !fromValueEntered;
+    currentUnit = null;
+    activeEditor = null;
+    highlightedTableUnit = null;
+    updateUnitCalc();
+  }
+
   /// Set [canConvert] based on whether the units are valid and compatible.
   void updateUnitCalc() {
     canConvert = false;
@@ -106,13 +141,16 @@ class UnitController extends ChangeNotifier {
     if (fromUnit.isValid && toUnit.isValid) {
       if (fromUnit.isCategoryMatch(toUnit)) {
         canConvert = true;
-        statusString = 'Converting  (reduce to:  ${fromUnit.reducedGroup} )';
+        final l10n = lookupAppLocalizations(Locale(effectiveLanguage));
+        statusString = l10n.statusConverting(fromUnit.reducedGroup.toString());
         addRecentUnits(toUnit.toString());
         addRecentUnits(fromUnit.toString());
       } else {
-        statusString =
-            'Units are not compatible ( ${fromUnit.reducedGroup} '
-            ' vs.  ${toUnit.reducedGroup} )';
+        final l10n = lookupAppLocalizations(Locale(effectiveLanguage));
+        statusString = l10n.statusIncompatible(
+          fromUnit.reducedGroup.toString(),
+          toUnit.reducedGroup.toString(),
+        );
       }
     }
     notifyListeners();

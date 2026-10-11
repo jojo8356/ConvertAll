@@ -1,15 +1,29 @@
-// unit_table.dart, provides a data table for unit sselection.
+// unit_table.dart, provides a scrollable list of selectable units.
 // ConvertAll, a versatile unit conversion program.
-// Copyright (c) 2024, Douglas W. Bell.
+// Copyright (c) 2026, Douglas W. Bell.
 // Free software, GPL v2 or later.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../model/theme_model.dart';
 import '../model/unit_controller.dart';
 import '../model/unit_data.dart';
+import 'common_widgets.dart';
+import '../l10n/l10n.dart';
 
+/// Total width of the table, kept in sync with the frame view.
+const tableWidth = 750.0;
+const nameColWidth = 272.0;
+const typeColWidth = 150.0;
+const commentColWidth = 296.0;
+
+/// Height of the sticky header and of every row.
 const headerHeight = 40.0;
 const lineHeight = 30.0;
+
+/// Width of the selection marker plus its gap inside a row.
+const markerWidth = 3.0;
+const markerGap = 9.0;
 
 class UnitTable extends StatefulWidget {
   const UnitTable({super.key});
@@ -44,6 +58,13 @@ class _UnitTableState extends State<UnitTable> {
             }
           }
         }
+        if (unitList.isEmpty) {
+          return SizedBox(
+            width: tableWidth,
+            height: 170.0,
+            child: _emptyState(context, model),
+          );
+        }
         // Align and set the max height to get the horizontal scrollbar near
         // the table when there aren't many entries.
         return Align(
@@ -69,7 +90,7 @@ class _UnitTableState extends State<UnitTable> {
                   scrollDirection: Axis.horizontal,
                   controller: _horziScrollCtrl,
                   child: SizedBox(
-                    width: 750.0,
+                    width: tableWidth,
                     child: CustomScrollView(
                       controller: _vertScrollCtrl,
                       slivers: <Widget>[
@@ -83,67 +104,13 @@ class _UnitTableState extends State<UnitTable> {
                             childCount: unitList.length,
                             (BuildContext context, int index) {
                               final unit = unitList[index];
-                              final isSelected =
-                                  unit == model.currentUnit?.unitMatch;
-                              final isActive =
-                                  unit == model.highlightedTableUnit;
-                              final textStyle = TextStyle(
-                                color: isSelected
-                                    ? Theme.of(
-                                        context,
-                                      ).colorScheme.onPrimaryContainer
-                                    : isActive
-                                    ? Theme.of(context).colorScheme.surfaceTint
-                                    : Theme.of(context).colorScheme.onSurface,
-                              );
-                              return GestureDetector(
+                              return _UnitRow(
+                                unit: unit,
+                                isSelected: unit == model.currentUnit?.unitMatch,
+                                isActive: unit == model.highlightedTableUnit,
                                 onTap: () {
                                   model.replaceCurrentUnit(unit);
                                 },
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  constraints: const BoxConstraints.tightFor(
-                                    height: lineHeight,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Theme.of(context).dividerColor,
-                                      ),
-                                    ),
-                                    color: isSelected
-                                        ? Theme.of(
-                                            context,
-                                          ).colorScheme.primaryContainer
-                                        : Theme.of(context).colorScheme.surface,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: <Widget>[
-                                      SizedBox(
-                                        width: 280.0,
-                                        child: Text(
-                                          unit.nameWithUnabbrev,
-                                          style: textStyle,
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: 150.0,
-                                        child: Text(
-                                          unit.type,
-                                          style: textStyle,
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: 280.0,
-                                        child: Text(
-                                          unit.comment,
-                                          style: textStyle,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               );
                             },
                           ),
@@ -159,8 +126,135 @@ class _UnitTableState extends State<UnitTable> {
       },
     );
   }
+
+  /// Message shown while unit data loads or when a search has no match.
+  Widget _emptyState(BuildContext context, UnitController model) {
+    final isLoading = UnitController.unitData.unitList.isEmpty;
+    if (isLoading) {
+      return EmptyState(
+        busy: true,
+        icon: Icons.storage_rounded,
+        title: context.l10n.loadingUnitsTitle,
+        message: context.l10n.loadingUnitsMessage,
+      );
+    }
+    if (model.isFilteringUnitData) {
+      return EmptyState(
+        icon: Icons.filter_alt_off_rounded,
+        title: context.l10n.noUnitsInCategoryTitle,
+        message: context.l10n.noUnitsInCategoryMessage,
+      );
+    }
+    return EmptyState(
+      icon: Icons.search_off_rounded,
+      title: context.l10n.noMatchingUnitsTitle,
+      message: context.l10n.noMatchingUnitsMessage,
+    );
+  }
 }
 
+/// One selectable row of the unit list.
+class _UnitRow extends StatefulWidget {
+  final UnitDatum unit;
+  final bool isSelected;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _UnitRow({
+    required this.unit,
+    required this.isSelected,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  State<_UnitRow> createState() => _UnitRowState();
+}
+
+class _UnitRowState extends State<_UnitRow> {
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final colors = AppColors.of(context);
+    final Color background;
+    final Color textColor;
+    if (widget.isSelected) {
+      background = scheme.primaryContainer;
+      textColor = scheme.onPrimaryContainer;
+    } else if (widget.isActive) {
+      background = colors.highlight;
+      textColor = scheme.primary;
+    } else {
+      background = _hovered ? colors.hover : Colors.transparent;
+      textColor = scheme.onSurface;
+    }
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      color: textColor,
+      fontWeight: widget.isSelected || widget.isActive
+          ? FontWeight.w600
+          : FontWeight.w400,
+    );
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (event) {
+        setState(() {
+          _hovered = true;
+        });
+      },
+      onExit: (event) {
+        setState(() {
+          _hovered = false;
+        });
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          height: lineHeight,
+          decoration: BoxDecoration(
+            color: background,
+            border: Border(bottom: BorderSide(color: colors.hairline)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Container(
+                width: markerWidth,
+                color: widget.isSelected ? scheme.primary : Colors.transparent,
+              ),
+              const SizedBox(width: markerGap),
+              _cell(widget.unit.nameWithUnabbrev, nameColWidth, style),
+              _cell(widget.unit.type, typeColWidth, style),
+              _cell(widget.unit.comment, commentColWidth, style),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(String text, double width, TextStyle? style) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 12.0),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            text,
+            style: style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sticky header with the three sortable columns.
 class _UnitTableHeader extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => headerHeight;
@@ -168,7 +262,7 @@ class _UnitTableHeader extends SliverPersistentHeaderDelegate {
   @override
   double get minExtent => headerHeight;
 
-  // Rebuild is needed to update light/dark theme setting.
+  // Rebuild is needed to update the sort direction and the light/dark theme.
   @override
   bool shouldRebuild(_UnitTableHeader oldDelegate) => true;
 
@@ -178,69 +272,96 @@ class _UnitTableHeader extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final textStyle = TextStyle(
-      color: Theme.of(context).colorScheme.onSecondary,
-    );
+    final colors = AppColors.of(context);
     return Consumer<UnitController>(
       builder: (context, model, child) {
         return Container(
-          color: Theme.of(context).colorScheme.secondary,
-          alignment: Alignment.center,
+          height: headerHeight,
+          color: colors.sunkenStrong,
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              GestureDetector(
-                onTap: () {
-                  model.handleHeaderTap(SortField.byName);
-                },
-                child: SizedBox(
-                  width: 280.0,
-                  height: headerHeight,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      model.sortParam.headerTitle(SortField.byName),
-                      style: textStyle,
-                    ),
-                  ),
-                ),
+              const SizedBox(width: markerWidth + markerGap),
+              _headerCell(
+                context,
+                model,
+                SortField.byName,
+                context.l10n.columnUnitName,
+                nameColWidth,
               ),
-              GestureDetector(
-                onTap: () {
-                  model.handleHeaderTap(SortField.byType);
-                },
-                child: SizedBox(
-                  width: 150.0,
-                  height: headerHeight,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      model.sortParam.headerTitle(SortField.byType),
-                      style: textStyle,
-                    ),
-                  ),
-                ),
+              _headerCell(
+                context,
+                model,
+                SortField.byType,
+                context.l10n.columnUnitType,
+                typeColWidth,
               ),
-              GestureDetector(
-                onTap: () {
-                  model.handleHeaderTap(SortField.byComment);
-                },
-                child: SizedBox(
-                  width: 280.0,
-                  height: headerHeight,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      model.sortParam.headerTitle(SortField.byComment),
-                      style: textStyle,
-                    ),
-                  ),
-                ),
+              _headerCell(
+                context,
+                model,
+                SortField.byComment,
+                context.l10n.columnComments,
+                commentColWidth,
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  /// One clickable column title with its sort indicator.
+  Widget _headerCell(
+    BuildContext context,
+    UnitController model,
+    SortField field,
+    String title,
+    double width,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    final isSorted = model.sortParam.sortField == field;
+    final style = AppTheme.overline.copyWith(
+      color: isSorted ? scheme.primary : scheme.onSurfaceVariant,
+    );
+    return SizedBox(
+      width: width,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            model.handleHeaderTap(field);
+          },
+          child: Tooltip(
+            message: context.l10n.sortByTitle(title),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: Row(
+                children: <Widget>[
+                  Flexible(
+                    child: Text(
+                      title.toUpperCase(),
+                      style: style,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6.0),
+                  Icon(
+                    !isSorted
+                        ? Icons.unfold_more_rounded
+                        : (model.sortParam.sortForward
+                              ? Icons.arrow_downward_rounded
+                              : Icons.arrow_upward_rounded),
+                    size: 14.0,
+                    color: isSorted ? scheme.primary : scheme.outline,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
