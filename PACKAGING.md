@@ -34,7 +34,7 @@ sudo ./ca_package.sh deps
 
 # 4. Tester le logiciel
 export PATH="$PATH:$(pwd)/flutter/bin"
-flutter analyze                     # contrôle statique
+flutter analyze lib                 # contrôle statique (voir la note ci-dessous)
 flutter run -d linux                # lancer l'application et l'essayer
 
 # 5. Compiler l'exécutable et construire les paquets
@@ -116,6 +116,19 @@ Contrôle rapide de l'outillage :
 flutter --version         # doit afficher 3.41.4 (stable)
 dpkg-deb --version
 ```
+
+> **Note — `flutter analyze` seul analyse aussi le SDK.** Le SDK Flutter vit
+> dans `./flutter/`, donc `flutter analyze` sans argument analyse également
+> `flutter/dev/**` (les applications d'exemple du SDK) et affiche des
+> centaines d'erreurs qui ne concernent pas ConvertAll. Analysez uniquement
+> le code de l'application :
+>
+> ```bash
+> flutter analyze lib
+> ```
+>
+> (`flutter pub get` doit avoir été lancé au moins une fois, puisque le
+> fichier généré `lib/l10n/app_localizations.dart` fait partie de `lib/`.)
 
 ## 2. Paquet `.deb`
 
@@ -326,7 +339,7 @@ Ordre de grandeur attendu sur Debian 12 x86_64 (à titre indicatif) :
 $EDITOR pubspec.yaml CHANGELOG.md DESIGN.md
 
 # 2. Vérifications de base
-flutter analyze                # le projet n'a pas encore de tests unitaires
+flutter analyze lib            # le projet n'a pas encore de tests unitaires
 
 # 3. Construction des paquets
 ./ca_package.sh all
