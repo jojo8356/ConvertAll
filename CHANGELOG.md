@@ -18,6 +18,9 @@
 - Reworked Help view, Settings, Bases and Fractions views with the same
   spacing, typography and panel system; the Help view is now readable at
   780 px with the same panel style as the rest of the app.
+- The Desktop Entry is now named org.bellz.convertall.desktop, matching the
+  AppStream component ID and the metadata file name, so that AppStream-aware
+  tools (software centres, appimagetool) find the application metadata.
 - New application icon (two swap arrows, azure and indigo, on navy) replacing
   the old rainbow icon; regenerated for Linux, Android, iOS, Windows, macOS
   and the web, including the hicolor icon theme used by the Linux packages.

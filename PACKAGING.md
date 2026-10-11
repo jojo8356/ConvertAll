@@ -120,8 +120,8 @@ dpkg-deb --version
 
 Produit `dist/convertall_<version>-<révision>_amd64.deb` (≈ 11–15 Mo). Ce
 paquet installe l'application dans `/opt/convertall`, crée le lien
-`/usr/bin/convertall`, la entrée de menu
-`/usr/share/applications/convertall.desktop`, les icônes `hicolor`
+`/usr/bin/convertall`, l'entrée de menu
+`/usr/share/applications/org.bellz.convertall.desktop`, les icônes `hicolor`
 (48 → 512 px) et les métadonnées AppStream
 `/usr/share/metainfo/org.bellz.convertall.appdata.xml`.
 
@@ -233,6 +233,25 @@ Produit `dist/convertall-<version>-x86_64.AppImage` (≈ 12–16 Mo).
   suppose présentes.
 - `SOURCE_DATE_EPOCH` est fixé à la date du dernier commit : deux
   constructions du même commit donnent le même fichier.
+- Les métadonnées AppStream sont cohérentes avec l'identité de l'application :
+  fichier de métadonnées `org.bellz.convertall.appdata.xml` (= identifiant du
+  composant), entrée de menu `org.bellz.convertall.desktop` (= identifiant +
+  `.desktop`) et `<launchable>` pointant sur ce fichier. `appimagetool`
+  cherche les métadonnées sous le nom du fichier `.desktop` : les deux noms
+  doivent donc rester alignés, c'est la raison de ce nom en domaine inversé.
+
+À savoir sur les vérifications d'`appimagetool` :
+
+| Message | Signification |
+|---|---|
+| `appstreamcli command is missing` | `appstreamcli` (paquet `appstream`) n'est pas installé : aucune validation des métadonnées n'est faite. Sans conséquence, `--no-appstream` permet également de couper la vérification |
+| `desktop-file-validate command is missing` puis arrêt | le paquet `desktop-file-utils` est **obligatoire** pour `appimagetool` (il est dans `./ca_package.sh deps`) |
+| `WARNING: AppStream upstream metadata is missing` | `appimagetool` ne trouve pas `usr/share/metainfo/<nom du .desktop>.appdata.xml`. Vérifier que le nom du `.desktop` est `org.bellz.convertall.desktop` |
+
+Si vous installez `appstream` (donc `appstreamcli`), `appimagetool` active
+alors la validation : elle échoue dès le moindre avertissement de style, ce
+qui peut arrêter la construction. Dans ce cas, utilisez
+`./ca_package.sh appimage --no-appstream`.
 
 Test :
 

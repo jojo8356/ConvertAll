@@ -112,7 +112,8 @@ case "$1" in
             || misc_error "Could not create '/opt/convertall' directory"
         cp -pr `pwd`/build/linux/x64/release/bundle/* /opt/convertall/. \
             || misc_error "Could not copy files to '/opt/convertall' directory"
-        cp -p `pwd`/convertall.desktop `pwd`/convertall_icon_64.png /opt/convertall/.
+        cp -p `pwd`/org.bellz.convertall.desktop `pwd`/convertall_icon_64.png \
+            /opt/convertall/.
         echo "Copy done"
         echo
         echo "Creating symlinks..."
@@ -120,7 +121,7 @@ case "$1" in
             || misc_error \
             "Could not create '/usr/local/share/applications' directory"
         ln -sf /opt/convertall/convertall /usr/local/bin/. \
-            && ln -sf /opt/convertall/convertall.desktop \
+            && ln -sf /opt/convertall/org.bellz.convertall.desktop \
             /usr/local/share/applications/. \
             || misc_error "Could not create symlinks"
         echo "Symlinks created"
@@ -143,9 +144,13 @@ case "$1" in
         rm /usr/local/bin/convertall \
             && echo "Removed /usr/local/bin/convertall (link)" \
             || echo "Failed to remove /usr/local/bin/convertall (link)"
-        rm /usr/local/share/applications/convertall.desktop \
-            && echo "Removed convertall.desktop (link)" \
-            || echo "Failed to remove convertall.desktop (link)"
+        rm -f /usr/local/share/applications/org.bellz.convertall.desktop \
+            && echo "Removed org.bellz.convertall.desktop (link)" \
+            || echo "Failed to remove org.bellz.convertall.desktop (link)"
+        # Also remove the desktop file name used by older versions.
+        rm -f /usr/local/share/applications/convertall.desktop \
+            && echo "Removed convertall.desktop (old link)" \
+            || echo "Failed to remove convertall.desktop (old link)"
         ;;
 
     *)

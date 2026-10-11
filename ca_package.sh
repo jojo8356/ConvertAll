@@ -27,6 +27,13 @@ OUT="$ROOT/dist"
 APPIMAGETOOL=${APPIMAGETOOL:-}
 PKG_REV=${PKG_REV:-1}
 MAINTAINER=${MAINTAINER:-"Doug Bell <doug101@bellz.org>"}
+# Name of the Desktop Entry installed by the packages.  It follows the
+# reverse domain-name convention of the AppStream component ID, which is also
+# the name appimagetool derives the metadata file name from.
+DESKTOP_NAME=org.bellz.convertall.desktop
+APPDATA_NAME=org.bellz.convertall.appdata.xml
+NO_APPSTREAM=0
+
 # Libraries Flutter always needs at run time.  They are cited in Depends with
 # their Debian 12 (bookworm) names and are never copied into the package.
 BASE_DEPENDS="libc6 libglib2.0-0 libgtk-3-0 libstdc++6"
@@ -60,6 +67,9 @@ Options:
                         (they are normally left to the system and only listed
                         in the Depends field, never copied into the package)
     --keep              keep the temporary package trees
+    --no-appstream      tell appimagetool to skip its AppStream checks (it
+                        fails on cosmetic warnings, and appstreamcli is not
+                        installed on a plain Debian 12)
     -h, --help          show this help
 
 Environment:
@@ -429,7 +439,7 @@ desktop_file () {
     # in the hicolor theme, and the spec Version field is set to 1.0.
     sed -e 's|^Icon=.*|Icon=convertall|' \
         -e 's|^Version=.*|Version=1.0|' \
-        "$ROOT/convertall.desktop" > "$1"
+        "$ROOT/$DESKTOP_NAME" > "$1"
     chmod 644 "$1"
 }
 
@@ -491,8 +501,8 @@ make_deb () {
     cp -a "$BUNDLE"/. "$deb_root/opt/convertall/"
     cp -a "$PACKAGING/icons/hicolor" "$deb_root/usr/share/icons/"
     ln -sf /opt/convertall/convertall "$deb_root/usr/bin/convertall"
-    desktop_file "$deb_root/usr/share/applications/convertall.desktop"
-    appdata_file "$deb_root/usr/share/metainfo/org.bellz.convertall.appdata.xml"
+    desktop_file "$deb_root/usr/share/applications/$DESKTOP_NAME"
+    appdata_file "$deb_root/usr/share/metainfo/$APPDATA_NAME"
     copyright_file "$deb_root/usr/share/doc/convertall/copyright"
     changelog_file "$deb_root/usr/share/doc/convertall/changelog.gz"
     installed_size=$(du -sk --exclude=DEBIAN "$deb_root" | cut -f 1)
@@ -594,10 +604,10 @@ make_appimage () {
         "$appdir/usr/share/icons" "$appdir/usr/share/metainfo"
     cp -a "$BUNDLE"/. "$appdir/usr/bin/"
     cp -a "$PACKAGING/icons/hicolor" "$appdir/usr/share/icons/"
-    desktop_file "$appdir/convertall.desktop"
-    cp -p "$appdir/convertall.desktop" \
-        "$appdir/usr/share/applications/convertall.desktop"
-    appdata_file "$appdir/usr/share/metainfo/org.bellz.convertall.appdata.xml"
+    desktop_file "$appdir/$DESKTOP_NAME"
+    cp -p "$appdir/$DESKTOP_NAME" \
+        "$appdir/usr/share/applications/$DESKTOP_NAME"
+    appdata_file "$appdir/usr/share/metainfo/$APPDATA_NAME"
     cp -p "$PACKAGING/icons/hicolor/256x256/apps/convertall.png" \
         "$appdir/convertall.png"
     cp -p "$PACKAGING/AppRun" "$appdir/AppRun"
@@ -613,7 +623,12 @@ make_appimage () {
     # selects a 128K block size for zstd, and rejects -Xbcj (an xz-only
     # option).
     mkdir -p "$OUT"
-    run_appimagetool env ARCH=x86_64 "$APPIMAGETOOL" --comp zstd \
+    if [ "$NO_APPSTREAM" -eq 1 ]; then
+        set -- --no-appstream
+    else
+        set --
+    fi
+    run_appimagetool env ARCH=x86_64 "$APPIMAGETOOL" "$@" --comp zstd \
         --mksquashfs-opt -Xcompression-level --mksquashfs-opt 22 \
         "$appdir" "$OUT/convertall-$APP_VERSION-x86_64.AppImage" \
         || die "appimagetool failed (see the messages above)"
@@ -630,9 +645,10 @@ do_deps () {
 was not found).  Install binutils, curl, dpkg-dev and the Flutter Linux
 build dependencies manually."
     echo "Detected 'apt-get' (Debian-based system)"
-    apt-get -y install binutils curl dpkg-dev file gzip xz-utils zip unzip \
-        clang cmake git libgtk-3-dev libglu1-mesa ninja-build pkgconf \
-        libstdc++-12-dev liblzma-dev || die "Error installing dependencies"
+    apt-get -y install binutils curl desktop-file-utils dpkg-dev file gzip \
+        xz-utils zip unzip clang cmake git libgtk-3-dev libglu1-mesa \
+        ninja-build pkgconf libstdc++-12-dev liblzma-dev \
+        || die "Error installing dependencies"
 }
 
 case "${1:-}" in
@@ -668,6 +684,7 @@ while [ $# -gt 0 ]; do
         --skip-build) SKIP_BUILD=1; shift ;;
         --obfuscate) OBFUSCATE=1; shift ;;
         --keep) KEEP=1; shift ;;
+        --no-appstream) NO_APPSTREAM=1; shift ;;
         --keep-system-libs) KEEP_SYSTEM_LIBS=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown option '$1'" ;;

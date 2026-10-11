@@ -32,7 +32,7 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">convertall.desktop</launchable>
+  <launchable type="desktop-id">org.bellz.convertall.desktop</launchable>
 
   <url type="homepage">https://convertall.bellz.org/</url>
   <url type="bugtracker">https://github.com/doug-101/ConvertAll/issues</url>
