@@ -18,6 +18,45 @@ Flutter n'exige pas, et tout ce qui peut être retiré l'est (voir §4).
 
 ---
 
+## 0. Du clone au paquet (résumé)
+
+```bash
+# 1. Récupérer le projet et aller sur la branche de travail
+git clone https://github.com/jojo8356/ConvertAll.git
+cd ConvertAll
+git checkout arena/2d99587e-convertall
+
+# 2. Dépendances système (une seule fois, demande le mot de passe sudo)
+sudo ./ca_package.sh deps
+
+# 3. Flutter + compilation (une seule fois : télécharge Flutter 3.41.4)
+./ca_make.sh build
+
+# 4. Tester le logiciel
+export PATH="$PATH:$(pwd)/flutter/bin"
+flutter analyze                     # contrôle statique
+flutter run -d linux                # lancer l'application et l'essayer
+
+# 5. Compiler l'exécutable et construire les paquets
+./ca_package.sh all                 # bundle + .deb + AppImage
+ls -lh dist/
+sudo apt install ./dist/convertall_1.0.3-1_amd64.deb
+convertall                          # lancer la version installée
+```
+
+Ce qui se vérifie à l'œil pendant l'étape 4 : une conversion composée
+(`ft * lbf / hr` → `N * m / sec`), le bouton d'échange central, le tri et le
+clic dans la table des unités, le filtre par type, le menu latéral (Réglages,
+Bases, Fractions, Aide) et le basculement de thème dans Réglages.
+
+« Convertir en exe » = étape 5 : `flutter build linux --release` produit
+l'exécutable natif `build/linux/x64/release/bundle/convertall` (ELF x86_64).
+Cet exécutable ne fonctionne **que accompagné de ses dossiers `lib/` et
+`data/`** : pour un fichier installable ou portable, utilisez le `.deb` ou
+l'AppImage produits par la même commande.
+
+---
+
 ## 1. Prérequis (une seule fois)
 
 Debian 12 x86_64, session graphique, ~6 Go d'espace libre, connexion Internet.
