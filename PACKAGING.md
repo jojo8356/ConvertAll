@@ -55,6 +55,32 @@ Cet exécutable ne fonctionne **que accompagné de ses dossiers `lib/` et
 `data/`** : pour un fichier installable ou portable, utilisez le `.deb` ou
 l'AppImage produits par la même commande.
 
+### Vérifier que votre commit est bien le dernier poussé
+
+```bash
+git status -sb                 # la ligne doit commencer par "##" sans "[ahead N]"
+git fetch origin               # met à jour la vue du dépôt distant
+git log --oneline origin/arena/2d99587e-convertall..HEAD   # vide = rien à pousser
+git log --oneline HEAD..origin/arena/2d99587e-convertall   # vide = rien à récupérer
+
+git rev-parse HEAD                                         # hash local complet
+git ls-remote origin refs/heads/arena/2d99587e-convertall  # hash réellement sur GitHub
+```
+
+Les deux hash doivent être **identiques**. Sinon :
+
+```bash
+git push origin arena/2d99587e-convertall
+```
+
+Autres repères :
+
+```bash
+git log -1 --format='%h %ad %an %s' --date=iso   # dernier commit local en clair
+gh api repos/jojo8356/ConvertAll/commits/arena/2d99587e-convertall \
+    --jq '.[0].sha[0:7] + " " + .[0].commit.message'   # dernier commit sur GitHub
+```
+
 ---
 
 ## 1. Prérequis (une seule fois)
