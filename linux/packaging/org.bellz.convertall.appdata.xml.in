@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <!-- AppStream metadata for ConvertAll.
+     The packaging script fills in the version number and the release date
+     before installing this file to /usr/share/metainfo/. -->
+<component type="desktop-application">
+  <id>org.bellz.convertall</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+
+  <name>ConvertAll</name>
+  <summary>Convert between any units, including combinations</summary>
+
+  <description>
+    <p>
+      ConvertAll converts between any units you can type, including
+      combinations such as "ft * lbf / hr" or "m^3 / s", without being
+      limited to the categories offered by the unit lists.
+    </p>
+    <p>
+      Units can be entered as names, abbreviations or symbols, a type filter
+      narrows the unit list and non-linear conversions (temperatures,
+      gauges, decibels, ...) are handled natively. Extra tools cover number
+      bases and fractions.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Combined and multi-step unit conversions</li>
+      <li>Recent units kept between sessions</li>
+      <li>Number base and fraction tools</li>
+      <li>Non-linear conversions for temperatures, gauges and decibels</li>
+      <li>Optional dark theme</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">convertall.desktop</launchable>
+
+  <url type="homepage">https://convertall.bellz.org/</url>
+  <url type="bugtracker">https://github.com/doug-101/ConvertAll/issues</url>
+
+  <developer id="org.bellz">
+    <name>Douglas W. Bell</name>
+  </developer>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>The conversion window in the light theme</caption>
+      <image type="source">
+        https://convertall.bellz.org/convertall_light.png
+      </image>
+    </screenshot>
+    <screenshot>
+      <caption>The conversion window in the dark theme</caption>
+      <image type="source">
+        https://convertall.bellz.org/convertall_dark.png
+      </image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>Science</category>
+    <category>Engineering</category>
+    <category>Calculator</category>
+  </categories>
+  <keywords>
+    <keyword>unit</keyword>
+    <keyword>conversion</keyword>
+    <keyword>measure</keyword>
+    <keyword>calculator</keyword>
+  </keywords>
+</component>

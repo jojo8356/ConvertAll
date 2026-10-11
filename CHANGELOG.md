@@ -1,5 +1,36 @@
 
 ---
+## Unreleased
+
+### Updates:
+- New interface built on a documented design direction ("Precision
+  Instrument", see DESIGN.md): a neutral instrument surface, one accent per
+  side of the conversion (azure for "From", indigo for "To"), semantic colors
+  reserved for feedback, tabular figures for every number and fully
+  documented light and dark palettes that meet WCAG AA contrast.
+- The conversion screen now shows the unit panels, the unit list and the
+  values in a single column, with a sticky sortable table header, keyboard
+  hints in the footer and non-blocking status feedback instead of error
+  dialogs.
+- Keyboard use is visible throughout: arrow keys browse the unit list,
+  Enter picks the highlighted unit, Tab moves between the fields, and the
+  highlighted row is drawn with the accent color.
+- Reworked Help view, Settings, Bases and Fractions views with the same
+  spacing, typography and panel system; the Help view is now readable at
+  780 px with the same panel style as the rest of the app.
+- New application icon (two swap arrows, azure and indigo, on navy) replacing
+  the old rainbow icon; regenerated for Linux, Android, iOS, Windows, macOS
+  and the web, including the hicolor icon theme used by the Linux packages.
+
+### Packaging:
+- New `ca_package.sh` tool that builds a size-optimized Linux release bundle
+  and packages it as a Debian package and an AppImage for Debian GNU/Linux 12
+  (bookworm) x86_64, plus the full release procedure (see PACKAGING.md).
+- The release build now uses `--split-debug-info` (symbols kept out of the
+  bundle), strips the engine libraries, compresses the Debian package with
+  `xz -9` and the AppImage with zstd level 22.
+
+---
 ## March 11, 2026 - Release 1.0.3
 
 ### Updates:

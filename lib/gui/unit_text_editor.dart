@@ -1,11 +1,12 @@
 // unit_text_editor.dart, provides a text edit widget for units.
 // ConvertAll, a versatile unit conversion program.
-// Copyright (c) 2024, Douglas W. Bell.
+// Copyright (c) 2026, Douglas W. Bell.
 // Free software, GPL v2 or later.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../model/theme_model.dart';
 import '../model/unit_controller.dart';
 import '../model/unit_group.dart';
 import 'common_widgets.dart';
@@ -116,59 +117,92 @@ class _UnitTextEditorState extends State<UnitTextEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 50, maxWidth: 280),
-        child: Consumer<UnitController>(
-          builder: (context, model, child) {
-            final newText = widget.unitGroup.toString();
-            if (newText != _editController.text) {
-              final lengthDelta = newText.length - _editController.text.length;
-              // Maintain cursor position from the end of the text.
-              var selectPos = _editController.selection.end + lengthDelta;
-              if (selectPos < 0) selectPos = 0;
-              _editController.value = _editController.value.copyWith(
-                text: newText,
-                selection: TextSelection.collapsed(offset: selectPos),
-                composing: TextRange.empty,
-              );
-            }
-            // Select all text if a recent unit was loaded at strtup.
-            if (_editorFocusNode.hasFocus && model.tabPressFlag) {
-              _editController.selection = TextSelection(
-                baseOffset: 0,
-                extentOffset: _editController.text.length,
-              );
-              model.tabPressFlag = false;
-            }
-            return LabelledTextEditor(
-              labelText: widget.isFrom ? 'From Unit' : 'To Unit',
-              controller: _editController,
-              focusNode: _editorFocusNode,
-              autofocus: widget.isFrom,
-              onChanged: (String newText) {
-                // Compare with spaces removed to allow backspace to remove
-                // extra space.
-                if (newText.replaceAll(' ', '') !=
-                    widget.unitGroup.toString().replaceAll(' ', '')) {
-                  final cursorPosFromEnd =
-                      newText.length - _editController.selection.end;
-                  model.updateUnitText(
-                    widget.unitGroup,
-                    newText,
-                    cursorPosFromEnd,
-                  );
-                }
-              },
-              onSubmitted: (String newText) {
-                if (model.highlightedTableUnit != null) {
-                  model.replaceCurrentUnit(model.highlightedTableUnit!);
-                }
-              },
+    final scheme = Theme.of(context).colorScheme;
+    final accent = widget.isFrom ? scheme.primary : scheme.tertiary;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 50.0, maxWidth: 400.0),
+      child: Consumer<UnitController>(
+        builder: (context, model, child) {
+          final newText = widget.unitGroup.toString();
+          if (newText != _editController.text) {
+            final lengthDelta = newText.length - _editController.text.length;
+            // Maintain cursor position from the end of the text.
+            var selectPos = _editController.selection.end + lengthDelta;
+            if (selectPos < 0) selectPos = 0;
+            _editController.value = _editController.value.copyWith(
+              text: newText,
+              selection: TextSelection.collapsed(offset: selectPos),
+              composing: TextRange.empty,
             );
-          },
-        ),
+          }
+          // Select all text if a recent unit was loaded at strtup.
+          if (_editorFocusNode.hasFocus && model.tabPressFlag) {
+            _editController.selection = TextSelection(
+              baseOffset: 0,
+              extentOffset: _editController.text.length,
+            );
+            model.tabPressFlag = false;
+          }
+          return PanelCard(
+            accent: accent,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    IconBadge(
+                      icon: widget.isFrom
+                          ? Icons.input_rounded
+                          : Icons.output_rounded,
+                      color: accent,
+                    ),
+                    const SizedBox(width: AppTheme.gapM),
+                    Expanded(
+                      child: SectionLabel(
+                        widget.isFrom ? 'From unit' : 'To unit',
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.gapS),
+                    ValidityDot(
+                      isValid: widget.unitGroup.isValid,
+                      hasContent:
+                          widget.unitGroup.toString().trim().isNotEmpty,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.gapM),
+                LabelledTextEditor(
+                  labelText: widget.isFrom ? 'From Unit' : 'To Unit',
+                  showLabel: false,
+                  hintText: widget.isFrom ? 'e.g. ft * lbf / hr' : 'm / s',
+                  style: AppTheme.unitText,
+                  controller: _editController,
+                  focusNode: _editorFocusNode,
+                  autofocus: widget.isFrom,
+                  onChanged: (String newText) {
+                    // Compare with spaces removed to allow backspace to remove
+                    // extra space.
+                    if (newText.replaceAll(' ', '') !=
+                        widget.unitGroup.toString().replaceAll(' ', '')) {
+                      final cursorPosFromEnd =
+                          newText.length - _editController.selection.end;
+                      model.updateUnitText(
+                        widget.unitGroup,
+                        newText,
+                        cursorPosFromEnd,
+                      );
+                    }
+                  },
+                  onSubmitted: (String newText) {
+                    if (model.highlightedTableUnit != null) {
+                      model.replaceCurrentUnit(model.highlightedTableUnit!);
+                    }
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

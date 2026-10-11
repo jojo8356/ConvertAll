@@ -1,12 +1,13 @@
 // fractions_view.dart, shows a converter for fractional numbers.
 // ConvertAll, a versatile unit conversion program.
-// Copyright (c) 2024, Douglas W. Bell.
+// Copyright (c) 2026, Douglas W. Bell.
 // Free software, GPL v2 or later.
 
 import 'package:async/async.dart';
 import 'package:eval_ex/expression.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../model/theme_model.dart';
 import 'common_widgets.dart';
 
 const fullWidth = 460.0;
@@ -31,77 +32,128 @@ class _FractionsViewState extends State<FractionsView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fraction Conversions'),
         leading: IconButton(
           // Manually create button to avoid focus using tab key.
           icon: const BackButtonIcon(),
+          tooltip: 'Back',
           focusNode: FocusNode(skipTraversal: true),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: fullWidth,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520.0),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.gapL,
+              AppTheme.gapL,
+              AppTheme.gapL,
+              AppTheme.gapL,
+            ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
               children: <Widget>[
-                TextButton(
-                  focusNode: FocusNode(skipTraversal: true),
-                  onPressed: () {
-                    usePowerOfTwo = !usePowerOfTwo;
-                    asyncResults();
-                  },
-                  child: Text(
-                    usePowerOfTwo
-                        ? 'Limiting denominators to powers of two'
-                        : 'Not limiing denominators to powers of two',
-                  ),
+                Row(
+                  children: <Widget>[
+                    IconBadge(
+                      icon: Icons.pie_chart_rounded,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: AppTheme.gapM),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const SectionLabel('Fraction finder'),
+                          const SizedBox(height: 3.0),
+                          Text(
+                            'Find the simple fractions that are closest to a '
+                            'decimal value.',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: LabelledTextEditor(
-                    labelText: 'Expression',
-                    errorText: errorText,
-                    // helperText avoids movement when errorText is shown.
-                    helperText: ' ',
-                    autofocus: true,
-                    inputFormatters: <TextInputFormatter>[
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[\d\.eE\+\-\*/\(\) ]'),
+                const SizedBox(height: AppTheme.gapL),
+                PanelCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          const Expanded(
+                            child: SectionLabel('Value to convert'),
+                          ),
+                          Tooltip(
+                            message: 'Limit the denominators to powers of two '
+                                '(1/2, 1/4, 1/8 ...)',
+                            child: FilterChip(
+                              selected: usePowerOfTwo,
+                              label: const Text('Powers of two'),
+                              onSelected: (bool value) {
+                                usePowerOfTwo = value;
+                                asyncResults();
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppTheme.gapM),
+                      LabelledTextEditor(
+                        labelText: 'Expression',
+                        showLabel: false,
+                        hintText: 'e.g. 0.375 or 3 / 8',
+                        style: AppTheme.valueText,
+                        errorText: errorText,
+                        // helperText avoids movement when errorText is shown.
+                        helperText: ' ',
+                        autofocus: true,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[\d\.eE\+\-\*/\\(\\) ]'),
+                          ),
+                        ],
+                        onChanged: (String newText) {
+                          if (_calcOper != null) {
+                            _calcOper!.cancel();
+                          }
+                          decimalValue = null;
+                          errorText = null;
+                          if (newText.isNotEmpty) {
+                            try {
+                              final decimal = Expression(newText).eval();
+                              decimalValue = decimal?.toDouble();
+                            } on ExpressionException {
+                              // Ignore errors, since will check for null value.
+                            } on FormatException {
+                              // Ignore errors, since will check for null value.
+                            }
+                            if (decimalValue == null) {
+                              errorText = 'Invalid value';
+                            }
+                          }
+                          asyncResults();
+                        },
                       ),
                     ],
-                    onChanged: (String newText) {
-                      if (_calcOper != null) {
-                        _calcOper!.cancel();
-                      }
-                      decimalValue = null;
-                      errorText = null;
-                      if (newText.isNotEmpty) {
-                        try {
-                          final decimal = Expression(newText).eval();
-                          decimalValue = decimal?.toDouble();
-                        } on ExpressionException {
-                          // Ignore errors, since will check for null value.
-                        } on FormatException {
-                          // Ignore errors, since will check for null value.
-                        }
-                        if (decimalValue == null) {
-                          errorText = 'Invalid value';
-                        }
-                      }
-                      asyncResults();
-                    },
                   ),
                 ),
-                Expanded(child: FractionTable(results: results)),
+                const SizedBox(height: AppTheme.gapL),
+                Expanded(
+                  child: PanelCard(
+                    padding: EdgeInsets.zero,
+                    clip: true,
+                    child: FractionTable(results: results),
+                  ),
+                ),
               ],
             ),
           ),
@@ -145,6 +197,13 @@ class _FractionTableState extends State<FractionTable> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.results.isEmpty) {
+      return const EmptyState(
+        icon: Icons.pie_chart_rounded,
+        title: 'No result yet',
+        message: 'Enter a value above to see the closest simple fractions.',
+      );
+    }
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
@@ -181,47 +240,7 @@ class _FractionTableState extends State<FractionTable> {
                       delegate: SliverChildBuilderDelegate(
                         childCount: widget.results.length,
                         (BuildContext context, int index) {
-                          return Container(
-                            alignment: Alignment.center,
-                            constraints: const BoxConstraints.tightFor(
-                              height: lineHeight,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Theme.of(context).dividerColor,
-                                ),
-                              ),
-                              color: Theme.of(context).colorScheme.surface,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                SizedBox(
-                                  width: columnWidth,
-                                  child: Text(
-                                    widget.results[index].toString(),
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: columnWidth,
-                                  child: Text(
-                                    widget.results[index].toDecimal(),
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
+                          return _FractionRow(result: widget.results[index]);
                         },
                       ),
                     ),
@@ -229,6 +248,75 @@ class _FractionTableState extends State<FractionTable> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One result row of the fraction table.
+class _FractionRow extends StatefulWidget {
+  final Fraction result;
+
+  const _FractionRow({required this.result});
+
+  @override
+  State<_FractionRow> createState() => _FractionRowState();
+}
+
+class _FractionRowState extends State<_FractionRow> {
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = AppColors.of(context);
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurface,
+      fontFeatures: AppTheme.valueText.fontFeatures,
+    );
+    return MouseRegion(
+      onEnter: (event) {
+        setState(() {
+          _hovered = true;
+        });
+      },
+      onExit: (event) {
+        setState(() {
+          _hovered = false;
+        });
+      },
+      child: Container(
+        height: lineHeight,
+        decoration: BoxDecoration(
+          color: _hovered ? colors.hover : Colors.transparent,
+          border: Border(bottom: BorderSide(color: colors.hairline)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const SizedBox(width: 12.0),
+            _cell(widget.result.toString(), style),
+            _cell(widget.result.toDecimal(), style),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(String text, TextStyle? style) {
+    return SizedBox(
+      width: columnWidth,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 12.0),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            text,
+            style: style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
@@ -253,32 +341,38 @@ class _FractionTableHeader extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final textStyle = TextStyle(
-      color: Theme.of(context).colorScheme.onSecondary,
+    final colors = AppColors.of(context);
+    final style = AppTheme.overline.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
     );
     return Container(
-      color: Theme.of(context).colorScheme.secondary,
-      alignment: Alignment.center,
+      height: headerHeight,
+      color: colors.sunkenStrong,
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          SizedBox(
-            width: columnWidth,
-            height: headerHeight,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Fraction', style: textStyle),
-            ),
-          ),
-          SizedBox(
-            width: columnWidth,
-            height: headerHeight,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Decimal', style: textStyle),
-            ),
-          ),
+          const SizedBox(width: 12.0),
+          _headerCell('Fraction', style),
+          _headerCell('Decimal', style),
         ],
+      ),
+    );
+  }
+
+  Widget _headerCell(String title, TextStyle style) {
+    return SizedBox(
+      width: columnWidth,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 12.0),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            title.toUpperCase(),
+            style: style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ),
     );
   }

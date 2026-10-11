@@ -150,6 +150,9 @@ case "$1" in
         echo "    $ ./ca_make.sh build"
         echo "    $ sudo ./ca_make.sh install"
         echo
+        echo "To build a Debian package or an AppImage, see"
+        echo "./ca_package.sh and PACKAGING.md instead."
+        echo
         exit 1
         ;;
 esac

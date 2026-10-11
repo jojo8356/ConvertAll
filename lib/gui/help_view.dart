@@ -1,6 +1,6 @@
 // help_view.dart, shows Markdown output of the README file and startup tips.
 // ConvertAll, a versatile unit conversion program.
-// Copyright (c) 2025, Douglas W. Bell.
+// Copyright (c) 2026, Douglas W. Bell.
 // Free software, GPL v2 or later.
 
 import 'package:flutter/material.dart';
@@ -8,6 +8,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_markdown_selectionarea/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart' show prefs;
+import '../model/theme_model.dart';
+import 'common_widgets.dart';
 
 const pathPrefix = 'assets/help/';
 
@@ -69,7 +71,7 @@ class _HelpViewState extends State<HelpView> {
                   _loadContent();
                 },
               ),
-            if (pagePos >= 0 && pagePos < _pageList.length - 1) ...[
+            if (pagePos >= 0 && pagePos < _pageList.length - 1) ...<Widget>[
               IconButton(
                 icon: const Icon(Icons.arrow_forward_ios),
                 tooltip: 'Next',
@@ -78,10 +80,10 @@ class _HelpViewState extends State<HelpView> {
                   _loadContent();
                 },
               ),
-            ] else ...[
+            ] else ...<Widget>[
               SizedBox(width: iconSize, height: 1.0),
             ],
-            if (_pageHistory.last != _pageHistory.first) ...[
+            if (_pageHistory.last != _pageHistory.first) ...<Widget>[
               IconButton(
                 icon: const Icon(Icons.home_outlined),
                 tooltip: 'Home',
@@ -90,7 +92,7 @@ class _HelpViewState extends State<HelpView> {
                   _loadContent();
                 },
               ),
-            ] else ...[
+            ] else ...<Widget>[
               SizedBox(width: iconSize, height: 1.0),
             ],
             IconButton(
@@ -102,22 +104,47 @@ class _HelpViewState extends State<HelpView> {
             ),
           ],
         ),
-        body: SelectionArea(
-          child: Markdown(
-            data: _currentContent,
-            onTapLink: (String text, String? href, String title) async {
-              if (href != null) {
-                if (href.contains(':')) {
-                  launchUrl(
-                    Uri.parse(href),
-                    mode: LaunchMode.externalApplication,
-                  );
-                } else if (href.endsWith('.md')) {
-                  _pageHistory.add(href);
-                  _loadContent();
-                }
-              }
-            },
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 780.0),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.gapL,
+                AppTheme.gapL,
+                AppTheme.gapL,
+                AppTheme.gapL,
+              ),
+              child: PanelCard(
+                padding: EdgeInsets.zero,
+                clip: true,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppTheme.gapXl,
+                    AppTheme.gapL,
+                    AppTheme.gapXl,
+                    AppTheme.gapXl,
+                  ),
+                  child: SelectionArea(
+                    child: Markdown(
+                      data: _currentContent,
+                      onTapLink: (String text, String? href, String title) async {
+                        if (href != null) {
+                          if (href.contains(':')) {
+                            launchUrl(
+                              Uri.parse(href),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          } else if (href.endsWith('.md')) {
+                            _pageHistory.add(href);
+                            _loadContent();
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -125,15 +152,13 @@ class _HelpViewState extends State<HelpView> {
   }
 }
 
-const _tipContent = '''
-ConvertAll's strength is the ability to combine units.
-Any of the following can be typed:
- * "m / s" for meters per second
- * "ft * lbf" for foot-pounds (torque)
- * "in^2" for square inches
- * "m^3" for cubic meters
- * or any other combinations
-''';
+/// Examples shown in the startup tip dialog.
+const _tipExamples = <(String, String)>[
+  ('m / s', 'meters per second'),
+  ('ft * lbf', 'foot-pounds (torque)'),
+  ('in^2', 'square inches'),
+  ('m^3', 'cubic meters'),
+];
 
 Future<void> startupTipDialog({required BuildContext context}) async {
   return showDialog<void>(
@@ -141,47 +166,98 @@ Future<void> startupTipDialog({required BuildContext context}) async {
     barrierDismissible: true,
     builder: (BuildContext context) {
       var showTip = true;
+      final theme = Theme.of(context);
+      final scheme = theme.colorScheme;
+      final colors = AppColors.of(context);
       return AlertDialog(
-        title: const Text('Tip: Combining Units', textAlign: TextAlign.center),
+        title: Row(
+          children: <Widget>[
+            IconBadge(icon: Icons.bolt_rounded, color: scheme.primary),
+            const SizedBox(width: AppTheme.gapM),
+            const Expanded(child: Text('Combine any units')),
+          ],
+        ),
         content: StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 15),
-                  child: Text(_tipContent),
-                ),
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      showTip = !showTip;
-                      prefs.setBool('show_tips', showTip);
-                    });
-                  },
-                  child: Row(
-                    children: <Widget>[
-                      const Expanded(child: Text('Show this tip at startup')),
-                      Switch(
-                        value: showTip,
-                        onChanged: (bool value) {
-                          setState(() {
-                            showTip = !showTip;
-                            prefs.setBool('show_tips', showTip);
-                          });
-                        },
-                      ),
-                    ],
+            return ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    'ConvertAll pairs any units you type, not only the ones '
+                    'offered in the lists. For example:',
+                    style: theme.textTheme.bodyMedium,
                   ),
-                ),
-              ],
+                  const SizedBox(height: AppTheme.gapL),
+                  for (final example in _tipExamples)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        children: <Widget>[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                              vertical: 3.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.sunken,
+                              borderRadius: BorderRadius.circular(7.0),
+                              border: Border.all(color: colors.hairline),
+                            ),
+                            child: Text(
+                              example.$1,
+                              style: AppTheme.codeText.copyWith(
+                                color: scheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.gapM),
+                          Expanded(
+                            child: Text(
+                              example.$2,
+                              style: theme.textTheme.bodySmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: AppTheme.gapXs),
+                  Divider(color: colors.hairline),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        showTip = !showTip;
+                        prefs.setBool('show_tips', showTip);
+                      });
+                    },
+                    child: Row(
+                      children: <Widget>[
+                        const Expanded(child: Text('Show this tip at startup')),
+                        Switch(
+                          value: showTip,
+                          onChanged: (bool value) {
+                            setState(() {
+                              showTip = !showTip;
+                              prefs.setBool('show_tips', showTip);
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),
         actions: <Widget>[
-          TextButton(
-            child: const Text('OK'),
+          FilledButton(
             onPressed: () => Navigator.pop(context),
+            child: const Text('Got it'),
           ),
         ],
       );

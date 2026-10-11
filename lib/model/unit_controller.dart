@@ -99,6 +99,19 @@ class UnitController extends ChangeNotifier {
     updateUnitCalc();
   }
 
+  /// Exchange the from and to entries, including the value direction.
+  void swapUnits() {
+    final fromText = fromUnit.toString();
+    final toText = toUnit.toString();
+    fromUnit.parse(toText);
+    toUnit.parse(fromText);
+    fromValueEntered = !fromValueEntered;
+    currentUnit = null;
+    activeEditor = null;
+    highlightedTableUnit = null;
+    updateUnitCalc();
+  }
+
   /// Set [canConvert] based on whether the units are valid and compatible.
   void updateUnitCalc() {
     canConvert = false;

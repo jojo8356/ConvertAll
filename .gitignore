@@ -32,6 +32,11 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Packaging tools, build tools and package output
+/dist/
+/tools/
+/flutter/
+
 # Symbolication related
 app.*.symbols
 

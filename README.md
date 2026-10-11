@@ -13,3 +13,16 @@ See the [ConvertAll homepage](http://convertall.bellz.org) for more info.
 
 There is also an [online version](http://convertall-web.bellz.org) that can
 be used with no software installation.
+
+# Building and packaging
+
+Building and installing on Linux is done with `ca_make.sh` (see the script
+usage), while `ca_package.sh` builds a size-optimized release for
+Debian GNU/Linux 12 x86_64 and packages it as a `.deb` and an `.AppImage`:
+
+    $ sudo ./ca_package.sh deps
+    $ ./ca_package.sh all
+
+The exact commands, the size optimizations and the release procedure are
+documented in [PACKAGING.md](PACKAGING.md).  The interface follows a
+documented design direction described in [DESIGN.md](DESIGN.md).

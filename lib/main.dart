@@ -18,10 +18,10 @@ late final SharedPreferences prefs;
 /// This is initially false to avoid saving window geometry during setup.
 bool allowSaveWindowGeo = false;
 
-const _stdWidth = 730.0;
-const _stdHeight = 630.0;
-const minWidth = 290.0;
-const minHeight = 380.0;
+const _stdWidth = 830.0;
+const _stdHeight = 700.0;
+const minWidth = 520.0;
+const minHeight = 560.0;
 
 Future<void> main() async {
   LicenseRegistry.addLicense(
@@ -119,19 +119,23 @@ Widget _stdRootApp({required Widget child}) {
 
 Widget _webRootApp({required Widget child}) {
   final ratio = prefs.getDouble('view_scale') ?? 1.0;
+  // Backdrop of the DA, slightly darker than the window card.
+  final pageColor = (prefs.getBool('dark_theme') ?? false)
+      ? AppTheme.webBackdropDark
+      : AppTheme.webBackdropLight;
   return FractionallySizedBox(
     widthFactor: 1 / ratio,
     heightFactor: 1 / ratio,
     child: Transform.scale(
       scale: ratio,
       child: Container(
-        color: const Color(0xFFa2b7bd),
+        color: pageColor,
         child: Center(
           child: SizedBox(
             width: _stdWidth * ratio,
             height: _stdHeight * ratio,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20.0),
+              borderRadius: BorderRadius.circular(AppTheme.webRadius),
               child: child,
             ),
           ),

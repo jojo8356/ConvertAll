@@ -1,12 +1,13 @@
 // bases_view.dart, shows a converter between numbers with different bases.
 // ConvertAll, a versatile unit conversion program.
-// Copyright (c) 2024, Douglas W. Bell.
+// Copyright (c) 2026, Douglas W. Bell.
 // Free software, GPL v2 or later.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_spinbox/flutter_spinbox.dart';
+import '../model/theme_model.dart';
 import 'common_widgets.dart';
 
 typedef ValueBaseCallback = void Function(String entry, int base);
@@ -57,28 +58,59 @@ class _BasesViewState extends State<BasesView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Base Conversions'),
         leading: IconButton(
           // Manually create button to avoid focus using tab key.
           icon: const BackButtonIcon(),
+          tooltip: 'Back',
           focusNode: FocusNode(skipTraversal: true),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: 400.0,
-            child: ListView(
-              children: <Widget>[
-                TextButton(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480.0),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.gapL,
+              AppTheme.gapL,
+              AppTheme.gapL,
+              AppTheme.gapXl,
+            ),
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  IconBadge(icon: Icons.numbers_rounded, color: scheme.primary),
+                  const SizedBox(width: AppTheme.gapM),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const SectionLabel('Number bases'),
+                        const SizedBox(height: 3.0),
+                        Text(
+                          'Type in any field; the other bases update '
+                          'instantly.',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.gapM),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
                   focusNode: FocusNode(skipTraversal: true),
+                  icon: const Icon(Icons.tune_rounded, size: 18.0),
+                  label: Text('Bit depth:  ${baseParams.toString()}'),
                   onPressed: () async {
                     final params = await _baseParamDialog(
                       context: context,
@@ -95,50 +127,59 @@ class _BasesViewState extends State<BasesView> {
                       });
                     }
                   },
-                  child: Text(baseParams.toString()),
                 ),
-                BaseEditor(
-                  base: 10,
-                  label: 'Decimal',
-                  regExpStr: r'[\d\-]',
-                  isValueFixed: enteredBase == 10,
-                  value: decValue,
-                  baseParams: baseParams,
-                  errorMsg: errorMsg,
-                  callback: valueBaseChanged,
+              ),
+              const SizedBox(height: AppTheme.gapL),
+              PanelCard(
+                child: Column(
+                  children: <Widget>[
+                    BaseEditor(
+                      base: 10,
+                      label: 'Decimal',
+                      regExpStr: r'[\d\-]',
+                      isValueFixed: enteredBase == 10,
+                      value: decValue,
+                      baseParams: baseParams,
+                      errorMsg: errorMsg,
+                      callback: valueBaseChanged,
+                    ),
+                    const SizedBox(height: AppTheme.gapL),
+                    BaseEditor(
+                      base: 16,
+                      label: 'Hex',
+                      regExpStr: r'[\dA-Fa-f\-]',
+                      isValueFixed: enteredBase == 16,
+                      value: decValue,
+                      baseParams: baseParams,
+                      errorMsg: errorMsg,
+                      callback: valueBaseChanged,
+                    ),
+                    const SizedBox(height: AppTheme.gapL),
+                    BaseEditor(
+                      base: 8,
+                      label: 'Octal',
+                      regExpStr: r'[0-7\-]',
+                      isValueFixed: enteredBase == 8,
+                      value: decValue,
+                      baseParams: baseParams,
+                      errorMsg: errorMsg,
+                      callback: valueBaseChanged,
+                    ),
+                    const SizedBox(height: AppTheme.gapL),
+                    BaseEditor(
+                      base: 2,
+                      label: 'Binary',
+                      regExpStr: r'[01\-]',
+                      isValueFixed: enteredBase == 2,
+                      value: decValue,
+                      baseParams: baseParams,
+                      errorMsg: errorMsg,
+                      callback: valueBaseChanged,
+                    ),
+                  ],
                 ),
-                BaseEditor(
-                  base: 16,
-                  label: 'Hex',
-                  regExpStr: r'[\dA-Fa-f\-]',
-                  isValueFixed: enteredBase == 16,
-                  value: decValue,
-                  baseParams: baseParams,
-                  errorMsg: errorMsg,
-                  callback: valueBaseChanged,
-                ),
-                BaseEditor(
-                  base: 8,
-                  label: 'Octal',
-                  regExpStr: r'[0-7\-]',
-                  isValueFixed: enteredBase == 8,
-                  value: decValue,
-                  baseParams: baseParams,
-                  errorMsg: errorMsg,
-                  callback: valueBaseChanged,
-                ),
-                BaseEditor(
-                  base: 2,
-                  label: 'Binary',
-                  regExpStr: r'[01\-]',
-                  isValueFixed: enteredBase == 2,
-                  value: decValue,
-                  baseParams: baseParams,
-                  errorMsg: errorMsg,
-                  callback: valueBaseChanged,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -225,25 +266,23 @@ class _BaseEditorState extends State<BaseEditor> {
         _editController.text = '';
       }
     }
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: LabelledTextEditor(
-        labelText: widget.label,
-        errorText: widget.isValueFixed && widget.errorMsg.isNotEmpty
-            ? widget.errorMsg
-            : null,
-        // helperText avoids movement when errorText is shown.
-        helperText: ' ',
-        controller: _editController,
-        focusNode: _editorFocusNode,
-        autofocus: true,
-        inputFormatters: <TextInputFormatter>[
-          FilteringTextInputFormatter.allow(RegExp(widget.regExpStr)),
-        ],
-        onChanged: (String newText) {
-          widget.callback(newText, widget.base);
-        },
-      ),
+    return LabelledTextEditor(
+      labelText: '${widget.label}  ·  base ${widget.base}',
+      errorText: widget.isValueFixed && widget.errorMsg.isNotEmpty
+          ? widget.errorMsg
+          : null,
+      // helperText avoids movement when errorText is shown.
+      helperText: ' ',
+      style: AppTheme.unitText,
+      controller: _editController,
+      focusNode: _editorFocusNode,
+      autofocus: true,
+      inputFormatters: <TextInputFormatter>[
+        FilteringTextInputFormatter.allow(RegExp(widget.regExpStr)),
+      ],
+      onChanged: (String newText) {
+        widget.callback(newText, widget.base);
+      },
     );
   }
 }
@@ -309,18 +348,18 @@ Future<BaseParams?> _baseParamDialog({
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
+      final theme = Theme.of(context);
       return AlertDialog(
-        title: const Text(
-          'Base Conversion\nParameters',
-          textAlign: TextAlign.center,
-        ),
+        title: const Text('Base conversion parameters'),
         content: StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
             return Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                const SectionLabel('Bit depth'),
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  padding: const EdgeInsets.only(top: 8.0, bottom: 18.0),
                   child: SpinBox(
                     min: 1.0,
                     max: 256.0,
@@ -335,23 +374,48 @@ Future<BaseParams?> _baseParamDialog({
                   ),
                 ),
                 InkWell(
+                  borderRadius: BorderRadius.circular(10.0),
                   onTap: () {
                     setState(() {
                       currentTwosComplement = !currentTwosComplement;
                     });
                   },
-                  child: Row(
-                    children: <Widget>[
-                      const Expanded(child: Text('Use two\'s complement')),
-                      Switch(
-                        value: currentTwosComplement,
-                        onChanged: (bool value) {
-                          setState(() {
-                            currentTwosComplement = !currentTwosComplement;
-                          });
-                        },
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4.0,
+                      vertical: 6.0,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                "Use two's complement",
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                'Interprets the highest bit as the sign of '
+                                'the value',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.gapM),
+                        Switch(
+                          value: currentTwosComplement,
+                          onChanged: (bool value) {
+                            setState(() {
+                              currentTwosComplement = !currentTwosComplement;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -360,7 +424,10 @@ Future<BaseParams?> _baseParamDialog({
         ),
         actions: <Widget>[
           TextButton(
-            child: const Text('OK'),
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
             onPressed: () {
               Navigator.pop(
                 context,
@@ -370,10 +437,7 @@ Future<BaseParams?> _baseParamDialog({
                 ),
               );
             },
-          ),
-          TextButton(
-            child: const Text('CANCEL'),
-            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Apply'),
           ),
         ],
       );
