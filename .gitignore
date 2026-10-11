@@ -36,6 +36,7 @@ migrate_working_dir/
 /dist/
 /tools/
 /flutter/
+/flutter_linux_*-stable.tar.xz
 
 # Symbolication related
 app.*.symbols

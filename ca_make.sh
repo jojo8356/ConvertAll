@@ -71,18 +71,25 @@ case "$1" in
         if [ "$(id -u)" = "0" ]; then
             misc_error "'build' should not be run as sudo or root"
         fi
-        echo "Downloading Flutter..."
-        flutter_site="https://storage.googleapis.com"
-        flutter_path="/flutter_infra_release/releases/stable/linux/"
         flutter_file="flutter_linux_3.41.4-stable.tar.xz"
-        curl -O $flutter_site$flutter_path$flutter_file \
-            || misc_error "Error:  Could not download Flutter"
-        echo
-        echo "Extracting Flutter..."
-        tar -xf $flutter_file \
-            || misc_error "Error:  Could not extract Flutter archive"
-        echo "Extract done"
-        echo
+        if [ ! -x "`pwd`/flutter/bin/flutter" ]; then
+            echo "Downloading Flutter..."
+            flutter_site="https://storage.googleapis.com"
+            flutter_path="/flutter_infra_release/releases/stable/linux/"
+            curl -O $flutter_site$flutter_path$flutter_file \
+                || misc_error "Error:  Could not download Flutter"
+            echo
+            echo "Extracting Flutter..."
+            tar -xf $flutter_file \
+                || misc_error "Error:  Could not extract Flutter archive"
+            echo "Extract done"
+            # The archive is of no use once extracted and takes ~1GB of disk.
+            rm -f "$flutter_file" && echo "Removed $flutter_file"
+            echo
+        else
+            echo "Flutter is already installed in ./flutter"
+            echo
+        fi
         export PATH="$PATH:`pwd`/flutter/bin"
         flutter build linux --release || misc_error "Error - build failed"
         echo
