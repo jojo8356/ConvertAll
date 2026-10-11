@@ -40,7 +40,7 @@ flutter run -d linux                # lancer l'application et l'essayer
 # 5. Compiler l'exécutable et construire les paquets
 ./ca_package.sh all                 # bundle + .deb + AppImage
 ls -lh dist/
-sudo apt install ./dist/convertall_1.0.3-1_amd64.deb
+sudo apt install ./dist/convertall_1.0.4-1_amd64.deb
 convertall                          # lancer la version installée
 ```
 
@@ -146,7 +146,7 @@ paquet installe l'application dans `/opt/convertall`, crée le lien
 Installation et test :
 
 ```bash
-sudo apt install ./dist/convertall_1.0.3-1_amd64.deb
+sudo apt install ./dist/convertall_1.0.4-1_amd64.deb
 convertall                                   # lance l'application
 dpkg -L convertall                           # liste des fichiers installés
 sudo apt remove convertall                   # désinstallation
@@ -221,10 +221,10 @@ Deux garde-fous :
 Vérifications :
 
 ```bash
-dpkg-deb -f dist/convertall_1.0.3-1_amd64.deb Depends       # dépendances citées
-dpkg-deb -c dist/convertall_1.0.3-1_amd64.deb | grep lib/   # rien de système
-dpkg-deb -I dist/convertall_1.0.3-1_amd64.deb               # champ par champ
-apt install --dry-run ./dist/convertall_1.0.3-1_amd64.deb   # vérifie la résolution
+dpkg-deb -f dist/convertall_1.0.4-1_amd64.deb Depends       # dépendances citées
+dpkg-deb -c dist/convertall_1.0.4-1_amd64.deb | grep lib/   # rien de système
+dpkg-deb -I dist/convertall_1.0.4-1_amd64.deb               # champ par champ
+apt install --dry-run ./dist/convertall_1.0.4-1_amd64.deb   # vérifie la résolution
 ldd /opt/convertall/convertall                              # après installation
 ```
 
@@ -274,10 +274,10 @@ qui peut arrêter la construction. Dans ce cas, utilisez
 Test :
 
 ```bash
-chmod +x dist/convertall-1.0.3-x86_64.AppImage
-./dist/convertall-1.0.3-x86_64.AppImage
+chmod +x dist/convertall-1.0.4-x86_64.AppImage
+./dist/convertall-1.0.4-x86_64.AppImage
 # Sans FUSE (Debian 12 de base) :
-APPIMAGE_EXTRACT_AND_RUN=1 ./dist/convertall-1.0.3-x86_64.AppImage
+APPIMAGE_EXTRACT_AND_RUN=1 ./dist/convertall-1.0.4-x86_64.AppImage
 ```
 
 ## 4. Ce qui réduit la taille du paquet
@@ -330,35 +330,44 @@ Ordre de grandeur attendu sur Debian 12 x86_64 (à titre indicatif) :
 
 ## 6. Procédure de release
 
-À exécuter sur la machine Debian 12 x86_64, dans l'ordre.
+À exécuter sur la machine Debian 12 x86_64, dans l'ordre. Les paquets doivent
+être construits **sur le commit qui sera tagué** (l'arbre doit être propre :
+`git status`).
 
 ```bash
-# 1. Version : bump dans pubspec.yaml (la version du .deb et de l'AppImage
-#    en découle), puis journal des modifications.
-#    version: 1.0.4+5
-$EDITOR pubspec.yaml CHANGELOG.md DESIGN.md
+# 1. Version et journal, sur une branche au propre (master dans l'exemple).
+#    version: 1.0.4+5   ->  .deb convertall_1.0.4-1_amd64.deb
+#                        ->  AppImage convertall-1.0.4-x86_64.AppImage
+#    Le titre du journal suit le format « ## <date> - Release <version> »,
+#    il sert à extraire les notes de la release (étape 5).
+$EDITOR pubspec.yaml CHANGELOG.md
 
 # 2. Vérifications de base
-flutter analyze lib            # le projet n'a pas encore de tests unitaires
+flutter analyze lib                   # le projet n'a pas encore de tests
+git add -A && git commit -m "Release 1.0.4"
 
-# 3. Construction des paquets
+# 3. Construction des paquets (bundle + .deb + AppImage)
 ./ca_package.sh all
 
-# 4. Archive des sources
+# 4. Archive des sources, prise sur le commit de release
 git archive --format=tar.gz --prefix=convertall-1.0.4/ \
     -o dist/convertall_1.0.4.tar.gz HEAD
 
-# 5. Empreintes des fichiers (à joindre à la release)
-( cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt )
+# 5. Notes de la release (la seule section 1.0.4 du journal)
+awk '/^## .*Release 1\.0\.4/{on=1; next} /^## /{on=0} on' \
+    CHANGELOG.md > dist/RELEASE_NOTES.md
 
-# 6. Commit, tag et publication
-git add -A && git commit -m "Release 1.0.4"
+# 6. Empreintes des fichiers (à joindre à la release)
+( cd dist && sha256sum *.deb *.AppImage *.tar.gz > SHA256SUMS.txt \
+    && cat SHA256SUMS.txt )
+
+# 7. Tag et publication
 git tag -a v1.0.4 -m "Release 1.0.4"
 git push origin master --follow-tags
 
 gh release create v1.0.4 \
     --title "Production Release 1.0.4" \
-    --notes-file CHANGELOG.md \
+    --notes-file dist/RELEASE_NOTES.md \
     dist/convertall_1.0.4-1_amd64.deb \
     dist/convertall-1.0.4-x86_64.AppImage \
     dist/convertall_1.0.4.tar.gz \

@@ -1,6 +1,6 @@
 
 ---
-## Unreleased
+## October 11, 2026 - Release 1.0.4
 
 ### Updates:
 - New interface built on a documented design direction ("Precision
