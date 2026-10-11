@@ -568,7 +568,22 @@ class ThemeModel extends ChangeNotifier {
     return isDark ? darkTheme : lightTheme;
   }
 
-  /// Update the themes throughout the app.
+  /// Language selected in the settings: 'system', 'en' or 'fr'.
+  String get languageCode => prefs.getString('language') ?? 'system';
+
+  /// The locale of the interface, or null to follow the system language.
+  Locale? get locale {
+    switch (languageCode) {
+      case 'en':
+        return const Locale('en');
+      case 'fr':
+        return const Locale('fr');
+      default:
+        return null;
+    }
+  }
+
+  /// Update the themes and the language throughout the app.
   void updateTheme() {
     notifyListeners();
   }

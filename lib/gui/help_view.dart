@@ -10,8 +10,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart' show prefs;
 import '../model/theme_model.dart';
 import 'common_widgets.dart';
+import '../l10n/l10n.dart';
 
 const pathPrefix = 'assets/help/';
+
+/// The path of a help page for the given [locale].
+String helpPagePath(Locale locale, String page) {
+  return locale.languageCode == 'en'
+      ? '$pathPrefix$page'
+      : '$pathPrefix${locale.languageCode}/$page';
+}
 
 /// Provides a view with Markdown output of the README file.
 class HelpView extends StatefulWidget {
@@ -25,16 +33,22 @@ class _HelpViewState extends State<HelpView> {
   static final _pageHistory = <String>['contents.md'];
   static final _pageList = <String>[];
   String _currentContent = '';
+  String? _loadedLanguage;
 
   @override
-  void initState() {
-    super.initState();
-    _loadContent();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload the page when the app language changes.
+    final language = Localizations.localeOf(context).languageCode;
+    if (_loadedLanguage != language) {
+      _loadedLanguage = language;
+      _loadContent();
+    }
   }
 
   void _loadContent() async {
     _currentContent = await rootBundle.loadString(
-      pathPrefix + _pageHistory.last,
+      helpPagePath(Localizations.localeOf(context), _pageHistory.last),
     );
     // Initialize _pageList once with link addresses from contents page.
     if (_pageList.isEmpty) {
@@ -42,6 +56,7 @@ class _HelpViewState extends State<HelpView> {
         _pageList.add(match.group(1)!);
       }
     }
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -60,12 +75,12 @@ class _HelpViewState extends State<HelpView> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Help - ConvertAll'),
+          title: Text(context.l10n.helpTitle),
           actions: <Widget>[
             if (pagePos > 0)
               IconButton(
                 icon: const Icon(Icons.arrow_back_ios),
-                tooltip: 'Previous',
+                tooltip: context.l10n.previous,
                 onPressed: () {
                   _pageHistory.add(_pageList[pagePos - 1]);
                   _loadContent();
@@ -74,7 +89,7 @@ class _HelpViewState extends State<HelpView> {
             if (pagePos >= 0 && pagePos < _pageList.length - 1) ...<Widget>[
               IconButton(
                 icon: const Icon(Icons.arrow_forward_ios),
-                tooltip: 'Next',
+                tooltip: context.l10n.next,
                 onPressed: () {
                   _pageHistory.add(_pageList[pagePos + 1]);
                   _loadContent();
@@ -86,7 +101,7 @@ class _HelpViewState extends State<HelpView> {
             if (_pageHistory.last != _pageHistory.first) ...<Widget>[
               IconButton(
                 icon: const Icon(Icons.home_outlined),
-                tooltip: 'Home',
+                tooltip: context.l10n.home,
                 onPressed: () {
                   _pageHistory.add(_pageHistory.first);
                   _loadContent();
@@ -97,7 +112,7 @@ class _HelpViewState extends State<HelpView> {
             ],
             IconButton(
               icon: const Icon(Icons.close),
-              tooltip: 'Close',
+              tooltip: context.l10n.close,
               onPressed: () {
                 Navigator.pop(context);
               },
@@ -153,11 +168,11 @@ class _HelpViewState extends State<HelpView> {
 }
 
 /// Examples shown in the startup tip dialog.
-const _tipExamples = <(String, String)>[
-  ('m / s', 'meters per second'),
-  ('ft * lbf', 'foot-pounds (torque)'),
-  ('in^2', 'square inches'),
-  ('m^3', 'cubic meters'),
+List<(String, String)> _tipExamples(BuildContext context) => <(String, String)>[
+  ('m / s', context.l10n.tipMetersPerSecond),
+  ('ft * lbf', context.l10n.tipFootPounds),
+  ('in^2', context.l10n.tipSquareInches),
+  ('m^3', context.l10n.tipCubicMeters),
 ];
 
 Future<void> startupTipDialog({required BuildContext context}) async {
@@ -174,7 +189,7 @@ Future<void> startupTipDialog({required BuildContext context}) async {
           children: <Widget>[
             IconBadge(icon: Icons.bolt_rounded, color: scheme.primary),
             const SizedBox(width: AppTheme.gapM),
-            const Expanded(child: Text('Combine any units')),
+            Expanded(child: Text(context.l10n.combineAnyUnits)),
           ],
         ),
         content: StatefulBuilder(
@@ -186,12 +201,11 @@ Future<void> startupTipDialog({required BuildContext context}) async {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Text(
-                    'ConvertAll pairs any units you type, not only the ones '
-                    'offered in the lists. For example:',
+                    context.l10n.startupTipIntro,
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: AppTheme.gapL),
-                  for (final example in _tipExamples)
+                  for (final example in _tipExamples(context))
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
                       child: Row(
@@ -236,7 +250,7 @@ Future<void> startupTipDialog({required BuildContext context}) async {
                     },
                     child: Row(
                       children: <Widget>[
-                        const Expanded(child: Text('Show this tip at startup')),
+                        Expanded(child: Text(context.l10n.showTipAtStartup)),
                         Switch(
                           value: showTip,
                           onChanged: (bool value) {
@@ -257,7 +271,7 @@ Future<void> startupTipDialog({required BuildContext context}) async {
         actions: <Widget>[
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got it'),
+            child: Text(context.l10n.gotIt),
           ),
         ],
       );

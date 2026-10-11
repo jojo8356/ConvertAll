@@ -38,6 +38,10 @@ migrate_working_dir/
 /flutter/
 /flutter_linux_*-stable.tar.xz
 
+# Generated localizations (see l10n.yaml), written by flutter pub get/build
+/lib/l10n/app_localizations.dart
+/lib/l10n/app_localizations_*.dart
+
 # Symbolication related
 app.*.symbols
 

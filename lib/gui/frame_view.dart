@@ -20,6 +20,7 @@ import 'settings_edit.dart';
 import 'unit_table.dart';
 import 'unit_text_editor.dart';
 import 'unit_value_editor.dart';
+import '../l10n/l10n.dart';
 
 /// Maximum width of the conversion layout.
 const _contentWidth = 782.0;
@@ -132,14 +133,14 @@ class _FrameViewState extends State<FrameView> with WindowListener {
             // Manually create button to avoid focus using tab key.
             leading: IconButton(
               icon: const Icon(Icons.menu_rounded),
-              tooltip: 'Menu',
+              tooltip: context.l10n.menu,
               focusNode: FocusNode(skipTraversal: true),
               onPressed: () => _scaffoldKey.currentState!.openDrawer(),
             ),
             actions: <Widget>[
               IconButton(
                 icon: const Icon(Icons.playlist_remove_rounded),
-                tooltip: 'Clear unit entries',
+                tooltip: context.l10n.clearUnitEntries,
                 focusNode: FocusNode(skipTraversal: true),
                 onPressed: () {
                   _fromEditorFocusNode.requestFocus();
@@ -154,7 +155,7 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                   descendantsAreTraversable: false,
                   child: PopupMenuButton<String>(
                     icon: const Icon(Icons.filter_alt),
-                    tooltip: 'Filter units by type',
+                    tooltip: context.l10n.filterUnitsByType,
                     onSelected: (result) {
                       model.filterUnitData(result);
                     },
@@ -167,7 +168,7 @@ class _FrameViewState extends State<FrameView> with WindowListener {
               ] else ...<Widget>[
                 IconButton(
                   icon: const Icon(Icons.filter_alt_off_rounded),
-                  tooltip: 'Stop filtering',
+                  tooltip: context.l10n.stopFiltering,
                   focusNode: FocusNode(skipTraversal: true),
                   onPressed: () {
                     model.endFilterUnitData();
@@ -183,7 +184,7 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                   descendantsAreTraversable: false,
                   child: PopupMenuButton<String>(
                     icon: const Icon(Icons.history_rounded),
-                    tooltip: 'Recently used units',
+                    tooltip: context.l10n.recentlyUsedUnits,
                     onSelected: (result) {
                       model.replaceCurrentGroup(result);
                     },
@@ -247,7 +248,10 @@ class _FrameViewState extends State<FrameView> with WindowListener {
             focusNode: _fromEditorFocusNode,
           ),
         ),
-        SizedBox(width: _centerGap, child: Center(child: _swapButton(model))),
+        SizedBox(
+          width: _centerGap,
+          child: Center(child: _swapButton(context, model)),
+        ),
         Expanded(
           child: UnitTextEditor(unitGroup: model.toUnit, isFrom: false),
         ),
@@ -256,11 +260,11 @@ class _FrameViewState extends State<FrameView> with WindowListener {
   }
 
   /// Round button that exchanges the two unit entries.
-  Widget _swapButton(UnitController model) {
+  Widget _swapButton(BuildContext context, UnitController model) {
     final scheme = Theme.of(context).colorScheme;
     final colors = AppColors.of(context);
     return Tooltip(
-      message: 'Swap the From and To entries',
+      message: context.l10n.swapEntries,
       child: Material(
         color: colors.panel,
         shape: CircleBorder(side: BorderSide(color: colors.hairline)),
@@ -307,17 +311,17 @@ class _FrameViewState extends State<FrameView> with WindowListener {
             ),
             child: Row(
               children: <Widget>[
-                const KeyHint(keyLabel: '↑ ↓', action: 'browse'),
+                KeyHint(keyLabel: '↑ ↓', action: context.l10n.keyBrowse),
                 const SizedBox(width: AppTheme.gapL),
-                const KeyHint(keyLabel: 'Enter', action: 'use unit'),
+                KeyHint(keyLabel: 'Enter', action: context.l10n.keyUseUnit),
                 const SizedBox(width: AppTheme.gapL),
-                const KeyHint(keyLabel: 'Tab', action: 'next field'),
+                KeyHint(keyLabel: 'Tab', action: context.l10n.keyNextField),
                 const Spacer(),
                 Flexible(
                   child: Text(
                     model.isFilteringUnitData
-                        ? 'Filtered list — click a unit to apply it'
-                        : 'Click a unit to replace the highlighted one',
+                        ? context.l10n.filteredListHint
+                        : context.l10n.clickUnitHint,
                     style: theme.textTheme.bodySmall,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -352,15 +356,15 @@ class _FrameViewState extends State<FrameView> with WindowListener {
       return InfoBar(
         icon: Icons.lightbulb_outline_rounded,
         color: scheme.primary,
-        message: 'Type a unit above, or pick one from the list below.',
+        message: context.l10n.statusTypeUnit,
       );
     }
     if (fromValid != toValid) {
       return InfoBar(
         icon: Icons.error_outline_rounded,
         color: colors.danger,
-        message: 'That unit name is not recognized.',
-        detail: 'Check the spelling or choose a unit from the list',
+        message: context.l10n.statusNotRecognized,
+        detail: context.l10n.statusNotRecognizedDetail,
       );
     }
     if (!model.canConvert) {
@@ -372,7 +376,7 @@ class _FrameViewState extends State<FrameView> with WindowListener {
       return InfoBar(
         icon: Icons.error_outline_rounded,
         color: colors.danger,
-        message: 'These units measure different things.',
+        message: context.l10n.statusDifferentUnits,
         detail: detail,
       );
     }
@@ -380,8 +384,8 @@ class _FrameViewState extends State<FrameView> with WindowListener {
     return InfoBar(
       icon: Icons.check_circle_outline_rounded,
       color: colors.success,
-      message: 'Units are compatible — the conversion updates as you type.',
-      detail: reduced.isEmpty ? null : 'reduce to: $reduced',
+      message: context.l10n.statusCompatible,
+      detail: reduced.isEmpty ? null : context.l10n.reduceTo(reduced),
     );
   }
 
@@ -419,8 +423,8 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                         Text('ConvertAll', style: theme.textTheme.titleLarge),
                         Text(
                           _version == null
-                              ? 'Unit conversion'
-                              : 'Version $_version',
+                              ? context.l10n.appSubtitle
+                              : context.l10n.versionLabel(_version!),
                           style: theme.textTheme.bodySmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -436,15 +440,15 @@ class _FrameViewState extends State<FrameView> with WindowListener {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(8.0, 14.0, 8.0, 14.0),
                 children: <Widget>[
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(12.0, 0.0, 12.0, 8.0),
-                    child: SectionLabel('Conversion tools'),
+                    child: SectionLabel(context.l10n.sectionConversionTools),
                   ),
                   _drawerItem(
                     context,
                     icon: Icons.settings_outlined,
-                    label: 'Settings',
-                    hint: 'Notation, startup and display',
+                    label: context.l10n.settingsTitle,
+                    hint: context.l10n.settingsHint,
                     onTap: () async {
                       Navigator.pop(context);
                       await Navigator.push(
@@ -458,8 +462,8 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                   _drawerItem(
                     context,
                     icon: Icons.numbers_rounded,
-                    label: 'Bases',
-                    hint: 'Decimal, hex, octal and binary',
+                    label: context.l10n.basesTitle,
+                    hint: context.l10n.basesHint,
                     onTap: () async {
                       Navigator.pop(context);
                       await Navigator.push(
@@ -473,8 +477,8 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                   _drawerItem(
                     context,
                     icon: Icons.pie_chart_rounded,
-                    label: 'Fractions',
-                    hint: 'Closest simple fractions',
+                    label: context.l10n.fractionsTitle,
+                    hint: context.l10n.fractionsHint,
                     onTap: () async {
                       Navigator.pop(context);
                       await Navigator.push(
@@ -486,14 +490,14 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                     },
                   ),
                   const SizedBox(height: AppTheme.gapS),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(12.0, 0.0, 12.0, 8.0),
-                    child: SectionLabel('Help'),
+                    child: SectionLabel(context.l10n.sectionHelp),
                   ),
                   _drawerItem(
                     context,
                     icon: Icons.help_outline_rounded,
-                    label: 'Help view',
+                    label: context.l10n.helpViewTitle,
                     onTap: () async {
                       Navigator.pop(context);
                       await Navigator.push(
@@ -507,7 +511,7 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                   _drawerItem(
                     context,
                     icon: Icons.info_outline_rounded,
-                    label: 'About ConvertAll',
+                    label: context.l10n.aboutTitle,
                     onTap: () async {
                       Navigator.pop(context);
                       final packageInfo = await PackageInfo.fromPlatform();
@@ -519,8 +523,8 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                           return AboutDialog(
                             applicationName: 'ConvertAll',
                             applicationVersion:
-                                'Version ${packageInfo.version}',
-                            applicationLegalese: '©2026 by Douglas W. Bell',
+                                context.l10n.versionLabel(packageInfo.version),
+                            applicationLegalese: context.l10n.aboutLegalese,
                             applicationIcon: Image.asset(
                               'assets/images/convertall_icon_48.png',
                             ),
@@ -539,7 +543,7 @@ class _FrameViewState extends State<FrameView> with WindowListener {
                 child: _drawerItem(
                   context,
                   icon: Icons.highlight_off_outlined,
-                  label: 'Quit',
+                  label: context.l10n.quit,
                   onTap: () {
                     SystemNavigator.pop();
                   },

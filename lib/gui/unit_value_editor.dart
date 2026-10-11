@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../model/theme_model.dart';
 import '../model/unit_controller.dart';
 import 'common_widgets.dart';
+import '../l10n/l10n.dart';
 
 class UnitValueEditor extends StatefulWidget {
   final bool isFrom;
@@ -87,13 +88,15 @@ class _UnitValueEditorState extends State<UnitValueEditor> {
                   children: <Widget>[
                     Expanded(
                       child: SectionLabel(
-                        widget.isFrom ? 'From value' : 'To value',
+                        widget.isFrom
+                            ? context.l10n.fromValue
+                            : context.l10n.toValue,
                       ),
                     ),
                     if (!widget.isFrom)
                       CopyIconButton(
                         text: _editController.text,
-                        tooltip: 'Copy the result',
+                        tooltip: context.l10n.copyTheResult,
                       ),
                   ],
                 ),
@@ -113,7 +116,9 @@ class _UnitValueEditorState extends State<UnitValueEditor> {
                 ),
                 const SizedBox(height: AppTheme.gapS),
                 Text(
-                  thisUnit.isValid ? thisUnit.toString() : '[no unit set]',
+                  thisUnit.isValid
+                      ? thisUnit.toString()
+                      : context.l10n.noUnitSet,
                   style: AppTheme.codeText.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),

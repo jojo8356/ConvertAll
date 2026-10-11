@@ -9,6 +9,7 @@ import '../model/theme_model.dart';
 import '../model/unit_controller.dart';
 import '../model/unit_data.dart';
 import 'common_widgets.dart';
+import '../l10n/l10n.dart';
 
 /// Total width of the table, kept in sync with the frame view.
 const tableWidth = 750.0;
@@ -61,7 +62,7 @@ class _UnitTableState extends State<UnitTable> {
           return SizedBox(
             width: tableWidth,
             height: 170.0,
-            child: _emptyState(model),
+            child: _emptyState(context, model),
           );
         }
         // Align and set the max height to get the horizontal scrollbar near
@@ -127,29 +128,27 @@ class _UnitTableState extends State<UnitTable> {
   }
 
   /// Message shown while unit data loads or when a search has no match.
-  Widget _emptyState(UnitController model) {
+  Widget _emptyState(BuildContext context, UnitController model) {
     final isLoading = UnitController.unitData.unitList.isEmpty;
     if (isLoading) {
-      return const EmptyState(
+      return EmptyState(
         busy: true,
         icon: Icons.storage_rounded,
-        title: 'Loading unit data',
-        message: 'The unit list is read from the data file at startup.',
+        title: context.l10n.loadingUnitsTitle,
+        message: context.l10n.loadingUnitsMessage,
       );
     }
     if (model.isFilteringUnitData) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.filter_alt_off_rounded,
-        title: 'No units in this category',
-        message: 'Use the filter button in the toolbar to show every '
-            'category again.',
+        title: context.l10n.noUnitsInCategoryTitle,
+        message: context.l10n.noUnitsInCategoryMessage,
       );
     }
-    return const EmptyState(
+    return EmptyState(
       icon: Icons.search_off_rounded,
-      title: 'No matching units',
-      message: 'Try a shorter search, or clear the field to browse the '
-          'full list.',
+      title: context.l10n.noMatchingUnitsTitle,
+      message: context.l10n.noMatchingUnitsMessage,
     );
   }
 }
@@ -287,21 +286,21 @@ class _UnitTableHeader extends SliverPersistentHeaderDelegate {
                 context,
                 model,
                 SortField.byName,
-                'Unit name',
+                context.l10n.columnUnitName,
                 nameColWidth,
               ),
               _headerCell(
                 context,
                 model,
                 SortField.byType,
-                'Unit type',
+                context.l10n.columnUnitType,
                 typeColWidth,
               ),
               _headerCell(
                 context,
                 model,
                 SortField.byComment,
-                'Comments',
+                context.l10n.columnComments,
                 commentColWidth,
               ),
             ],
@@ -334,7 +333,7 @@ class _UnitTableHeader extends SliverPersistentHeaderDelegate {
             model.handleHeaderTap(field);
           },
           child: Tooltip(
-            message: 'Sort by $title',
+            message: context.l10n.sortByTitle(title),
             child: Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: Row(

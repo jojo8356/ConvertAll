@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_spinbox/flutter_spinbox.dart';
 import '../model/theme_model.dart';
 import 'common_widgets.dart';
+import '../l10n/l10n.dart';
 
 typedef ValueBaseCallback = void Function(String entry, int base);
 
@@ -40,14 +41,14 @@ class _BasesViewState extends State<BasesView> {
   var errorMsg = '';
 
   /// Callback to set decimal value and active base.
-  void valueBaseChanged(String entry, int base) {
+  void valueBaseChanged(BuildContext context, String entry, int base) {
     entry = entry.replaceAll(' ', '');
     setState(() {
       decValue = _baseInt(entry, base, baseParams);
       enteredBase = base;
       errorMsg = '';
       if (decValue == null && entry.isNotEmpty && entry != '-') {
-        errorMsg = 'invalid entry';
+        errorMsg = context.l10n.invalidEntry;
       }
       if (decValue != null && _baseIsOverflow(decValue!, baseParams)) {
         errorMsg = 'overflow';
@@ -62,11 +63,11 @@ class _BasesViewState extends State<BasesView> {
     final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Base Conversions'),
+        title: Text(context.l10n.baseConversionsTitle),
         leading: IconButton(
           // Manually create button to avoid focus using tab key.
           icon: const BackButtonIcon(),
-          tooltip: 'Back',
+          tooltip: context.l10n.back,
           focusNode: FocusNode(skipTraversal: true),
           onPressed: () {
             Navigator.pop(context);
@@ -92,11 +93,10 @@ class _BasesViewState extends State<BasesView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        const SectionLabel('Number bases'),
+                        SectionLabel(context.l10n.numberBases),
                         const SizedBox(height: 3.0),
                         Text(
-                          'Type in any field; the other bases update '
-                          'instantly.',
+                          context.l10n.numberBasesHelp,
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
@@ -110,7 +110,9 @@ class _BasesViewState extends State<BasesView> {
                 child: OutlinedButton.icon(
                   focusNode: FocusNode(skipTraversal: true),
                   icon: const Icon(Icons.tune_rounded, size: 18.0),
-                  label: Text('Bit depth:  ${baseParams.toString()}'),
+                  label: Text(
+                    context.l10n.bitDepthValue(baseParams.toString()),
+                  ),
                   onPressed: () async {
                     final params = await _baseParamDialog(
                       context: context,
@@ -135,46 +137,50 @@ class _BasesViewState extends State<BasesView> {
                   children: <Widget>[
                     BaseEditor(
                       base: 10,
-                      label: 'Decimal',
+                      label: context.l10n.decimalLabel,
                       regExpStr: r'[\d\-]',
                       isValueFixed: enteredBase == 10,
                       value: decValue,
                       baseParams: baseParams,
                       errorMsg: errorMsg,
-                      callback: valueBaseChanged,
+                      callback: (String entry, int base) =>
+                          valueBaseChanged(context, entry, base),
                     ),
                     const SizedBox(height: AppTheme.gapL),
                     BaseEditor(
                       base: 16,
-                      label: 'Hex',
+                      label: context.l10n.hexLabel,
                       regExpStr: r'[\dA-Fa-f\-]',
                       isValueFixed: enteredBase == 16,
                       value: decValue,
                       baseParams: baseParams,
                       errorMsg: errorMsg,
-                      callback: valueBaseChanged,
+                      callback: (String entry, int base) =>
+                          valueBaseChanged(context, entry, base),
                     ),
                     const SizedBox(height: AppTheme.gapL),
                     BaseEditor(
                       base: 8,
-                      label: 'Octal',
+                      label: context.l10n.octalLabel,
                       regExpStr: r'[0-7\-]',
                       isValueFixed: enteredBase == 8,
                       value: decValue,
                       baseParams: baseParams,
                       errorMsg: errorMsg,
-                      callback: valueBaseChanged,
+                      callback: (String entry, int base) =>
+                          valueBaseChanged(context, entry, base),
                     ),
                     const SizedBox(height: AppTheme.gapL),
                     BaseEditor(
                       base: 2,
-                      label: 'Binary',
+                      label: context.l10n.binaryLabel,
                       regExpStr: r'[01\-]',
                       isValueFixed: enteredBase == 2,
                       value: decValue,
                       baseParams: baseParams,
                       errorMsg: errorMsg,
-                      callback: valueBaseChanged,
+                      callback: (String entry, int base) =>
+                          valueBaseChanged(context, entry, base),
                     ),
                   ],
                 ),
@@ -267,7 +273,7 @@ class _BaseEditorState extends State<BaseEditor> {
       }
     }
     return LabelledTextEditor(
-      labelText: '${widget.label}  ·  base ${widget.base}',
+      labelText: context.l10n.baseLabel(widget.label, widget.base),
       errorText: widget.isValueFixed && widget.errorMsg.isNotEmpty
           ? widget.errorMsg
           : null,
@@ -350,14 +356,14 @@ Future<BaseParams?> _baseParamDialog({
     builder: (BuildContext context) {
       final theme = Theme.of(context);
       return AlertDialog(
-        title: const Text('Base conversion parameters'),
+        title: Text(context.l10n.baseParamsTitle),
         content: StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const SectionLabel('Bit depth'),
+                SectionLabel(context.l10n.bitDepth),
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0, bottom: 18.0),
                   child: SpinBox(
@@ -368,8 +374,8 @@ Future<BaseParams?> _baseParamDialog({
                     onChanged: (double value) {
                       currentBits = value.round();
                     },
-                    decoration: const InputDecoration(
-                      labelText: 'Number of bits',
+                    decoration: InputDecoration(
+                      labelText: context.l10n.numberOfBits,
                     ),
                   ),
                 ),
@@ -398,8 +404,7 @@ Future<BaseParams?> _baseParamDialog({
                                 ),
                               ),
                               Text(
-                                'Interprets the highest bit as the sign of '
-                                'the value',
+                                context.l10n.twosComplementHelp,
                                 style: theme.textTheme.bodySmall,
                               ),
                             ],
@@ -425,7 +430,7 @@ Future<BaseParams?> _baseParamDialog({
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(context, null),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -437,7 +442,7 @@ Future<BaseParams?> _baseParamDialog({
                 ),
               );
             },
-            child: const Text('Apply'),
+            child: Text(context.l10n.apply),
           ),
         ],
       );

@@ -146,6 +146,10 @@ downloads Flutter into ./flutter), put flutter in your PATH or set FLUTTER."
 build_bundle () {
     flutter_bin=$(find_flutter)
     echo "Using Flutter:  $flutter_bin"
+    note "Resolving the packages and the translations"
+    # pub get writes lib/l10n/app_localizations.dart (see l10n.yaml and the
+    # 'generate: true' flag of pubspec.yaml); it is not versioned.
+    ( cd "$ROOT" && "$flutter_bin" pub get ) || die "flutter pub get failed"
     note "Building the release bundle"
     # --release: AOT compiled Dart, asserts off, icon font tree-shaken.
     # --split-debug-info: debug info goes to build/symbols instead of the

@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'gui/frame_view.dart';
+import 'l10n/app_localizations.dart';
 import 'model/theme_model.dart';
 import 'model/unit_controller.dart';
 
@@ -98,6 +99,11 @@ Future<void> main() async {
             child: MaterialApp(
               title: 'ConvertAll',
               theme: themeModel.getTheme(),
+              // A null locale means "follow the system language"; the
+              // delegates translate both the app and the Material widgets.
+              locale: themeModel.locale,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
               home: const FrameView(),
               debugShowCheckedModeBanner: false,
             ),

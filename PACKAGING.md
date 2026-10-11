@@ -102,6 +102,11 @@ Flutter n'est pas fourni par Debian : il est téléchargé **une fois** par
 ./ca_make.sh build        # télécharge Flutter 3.41.4 (stable) dans ./flutter
 ```
 
+Cette commande lance aussi `flutter pub get`, qui génère
+`lib/l10n/app_localizations.dart` à partir de `lib/l10n/app_en.arb` et
+`app_fr.arb` (voir `l10n.yaml`). Ce fichier n'est pas versionné : il est
+recréé à chaque `pub get` / compilation.
+
 `ca_package.sh` réutilise ce dossier, ou un `flutter` déjà présent dans le
 `PATH`, ou la variable `FLUTTER=/chemin/vers/flutter`.
 

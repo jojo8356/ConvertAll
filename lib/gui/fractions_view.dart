@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../model/theme_model.dart';
 import 'common_widgets.dart';
+import '../l10n/l10n.dart';
 
 const fullWidth = 460.0;
 const columnWidth = 220.0;
@@ -36,11 +37,11 @@ class _FractionsViewState extends State<FractionsView> {
     final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fraction Conversions'),
+        title: Text(context.l10n.fractionConversionsTitle),
         leading: IconButton(
           // Manually create button to avoid focus using tab key.
           icon: const BackButtonIcon(),
-          tooltip: 'Back',
+          tooltip: context.l10n.back,
           focusNode: FocusNode(skipTraversal: true),
           onPressed: () {
             Navigator.pop(context);
@@ -70,11 +71,10 @@ class _FractionsViewState extends State<FractionsView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          const SectionLabel('Fraction finder'),
+                          SectionLabel(context.l10n.fractionFinder),
                           const SizedBox(height: 3.0),
                           Text(
-                            'Find the simple fractions that are closest to a '
-                            'decimal value.',
+                            context.l10n.fractionFinderHelp,
                             style: theme.textTheme.bodySmall,
                           ),
                         ],
@@ -89,15 +89,14 @@ class _FractionsViewState extends State<FractionsView> {
                     children: <Widget>[
                       Row(
                         children: <Widget>[
-                          const Expanded(
-                            child: SectionLabel('Value to convert'),
+                          Expanded(
+                            child: SectionLabel(context.l10n.valueToConvert),
                           ),
                           Tooltip(
-                            message: 'Limit the denominators to powers of two '
-                                '(1/2, 1/4, 1/8 ...)',
+                            message: context.l10n.powersOfTwoTooltip,
                             child: FilterChip(
                               selected: usePowerOfTwo,
-                              label: const Text('Powers of two'),
+                              label: Text(context.l10n.powersOfTwo),
                               onSelected: (bool value) {
                                 usePowerOfTwo = value;
                                 asyncResults();
@@ -108,9 +107,9 @@ class _FractionsViewState extends State<FractionsView> {
                       ),
                       const SizedBox(height: AppTheme.gapM),
                       LabelledTextEditor(
-                        labelText: 'Expression',
+                        labelText: context.l10n.expression,
                         showLabel: false,
-                        hintText: 'e.g. 0.375 or 3 / 8',
+                        hintText: context.l10n.expressionHint,
                         style: AppTheme.valueText,
                         errorText: errorText,
                         // helperText avoids movement when errorText is shown.
@@ -137,7 +136,7 @@ class _FractionsViewState extends State<FractionsView> {
                               // Ignore errors, since will check for null value.
                             }
                             if (decimalValue == null) {
-                              errorText = 'Invalid value';
+                              errorText = context.l10n.invalidValue;
                             }
                           }
                           asyncResults();
@@ -198,10 +197,10 @@ class _FractionTableState extends State<FractionTable> {
   @override
   Widget build(BuildContext context) {
     if (widget.results.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.pie_chart_rounded,
-        title: 'No result yet',
-        message: 'Enter a value above to see the closest simple fractions.',
+        title: context.l10n.noResultTitle,
+        message: context.l10n.noResultMessage,
       );
     }
     return Align(
@@ -234,7 +233,9 @@ class _FractionTableState extends State<FractionTable> {
                     SliverPersistentHeader(
                       pinned: true,
                       floating: false,
-                      delegate: _FractionTableHeader(),
+                      delegate: _FractionTableHeader(
+                        Localizations.localeOf(context),
+                      ),
                     ),
                     SliverList(
                       delegate: SliverChildBuilderDelegate(
@@ -326,6 +327,11 @@ class _FractionRowState extends State<_FractionRow> {
 
 /// Provides the result table header.
 class _FractionTableHeader extends SliverPersistentHeaderDelegate {
+  const _FractionTableHeader(this.locale);
+
+  /// The interface language, used to rebuild the header when it changes.
+  final Locale locale;
+
   @override
   double get maxExtent => headerHeight;
 
@@ -333,7 +339,8 @@ class _FractionTableHeader extends SliverPersistentHeaderDelegate {
   double get minExtent => headerHeight;
 
   @override
-  bool shouldRebuild(_FractionTableHeader oldDelegate) => false;
+  bool shouldRebuild(_FractionTableHeader oldDelegate) =>
+      locale != oldDelegate.locale;
 
   @override
   Widget build(
@@ -352,8 +359,8 @@ class _FractionTableHeader extends SliverPersistentHeaderDelegate {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           const SizedBox(width: 12.0),
-          _headerCell('Fraction', style),
-          _headerCell('Decimal', style),
+          _headerCell(context.l10n.fractionColumn, style),
+          _headerCell(context.l10n.decimalLabel, style),
         ],
       ),
     );

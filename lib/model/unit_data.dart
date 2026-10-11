@@ -6,6 +6,7 @@
 import 'dart:convert' show json;
 import 'package:eval_ex/expression.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import '../l10n/l10n.dart';
 
 enum SortField { byName, byType, byComment }
 
@@ -29,12 +30,29 @@ class UnitData {
     return filteredUnits.isNotEmpty ? filteredUnits : unitList;
   }
 
+  /// Empty the data, so that [loadData] may be called again after a change
+  /// of language.
+  void reset() {
+    unitList.clear();
+    unitMap.clear();
+    typeList.clear();
+    filteredUnits.clear();
+  }
+
   Future<void> loadData() async {
+    final language = effectiveLanguage;
+    final typeNames = language == 'en'
+        ? const <String, dynamic>{}
+        : json.decode(
+                await rootBundle.loadString('assets/units_$language.json'),
+              )
+              as Map<String, dynamic>;
     final typeSet = <String>{};
     final List<dynamic> dataList = json.decode(
       await rootBundle.loadString('assets/units.json'),
     );
     for (var item in dataList) {
+      _translateType(item, typeNames);
       final unit = UnitDatum(item);
       unitList.add(unit);
       unitMap[unit.name.toLowerCase().replaceAll(' ', '')] = unit;
@@ -42,6 +60,14 @@ class UnitData {
     }
     typeList.addAll(typeSet);
     typeList.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
+  /// Replace the type name in [item] with its translation from [typeNames].
+  void _translateType(dynamic item, Map<String, dynamic> typeNames) {
+    final type = item['type'];
+    if (type is String && typeNames.containsKey(type)) {
+      item['type'] = typeNames[type];
+    }
   }
 
   /// Return an exact match for the given unit name.

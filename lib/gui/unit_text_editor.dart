@@ -10,6 +10,7 @@ import '../model/theme_model.dart';
 import '../model/unit_controller.dart';
 import '../model/unit_group.dart';
 import 'common_widgets.dart';
+import '../l10n/l10n.dart';
 
 class UnitTextEditor extends StatefulWidget {
   final UnitGroup unitGroup;
@@ -159,7 +160,9 @@ class _UnitTextEditorState extends State<UnitTextEditor> {
                     const SizedBox(width: AppTheme.gapM),
                     Expanded(
                       child: SectionLabel(
-                        widget.isFrom ? 'From unit' : 'To unit',
+                        widget.isFrom
+                            ? context.l10n.fromUnit
+                            : context.l10n.toUnit,
                       ),
                     ),
                     const SizedBox(width: AppTheme.gapS),
@@ -172,9 +175,13 @@ class _UnitTextEditorState extends State<UnitTextEditor> {
                 ),
                 const SizedBox(height: AppTheme.gapM),
                 LabelledTextEditor(
-                  labelText: widget.isFrom ? 'From Unit' : 'To Unit',
+                  labelText: widget.isFrom
+                      ? context.l10n.fromUnitLabel
+                      : context.l10n.toUnitLabel,
                   showLabel: false,
-                  hintText: widget.isFrom ? 'e.g. ft * lbf / hr' : 'm / s',
+                  hintText: widget.isFrom
+                      ? context.l10n.hintCombinedUnit
+                      : 'm / s',
                   style: AppTheme.unitText,
                   controller: _editController,
                   focusNode: _editorFocusNode,

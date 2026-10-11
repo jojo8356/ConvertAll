@@ -11,6 +11,7 @@ import '../main.dart'
     show prefs, minWidth, minHeight, allowSaveWindowGeo, saveWindowGeo;
 import '../model/theme_model.dart';
 import '../model/unit_controller.dart';
+import '../l10n/l10n.dart';
 import 'common_widgets.dart';
 
 /// A user settings view.
@@ -27,6 +28,7 @@ class _SettingEditState extends State<SettingEdit> {
 
   final _formKey = GlobalKey<FormState>();
   final origViewScale = prefs.getDouble('view_scale') ?? 1.0;
+  final origLanguage = effectiveLanguage;
 
   /// True on desktop platforms that use the native window manager.
   bool get _isDesktop =>
@@ -64,6 +66,10 @@ class _SettingEditState extends State<SettingEdit> {
       if (!mounted) return true;
       final model = Provider.of<UnitController>(context, listen: false);
       model.generalUpdate();
+      if (effectiveLanguage != origLanguage) {
+        // The unit type names are translated, they must be re-read.
+        await model.reloadData();
+      }
       final themeModel = Provider.of<ThemeModel>(context, listen: false);
       themeModel.updateTheme();
       return true;
@@ -75,11 +81,11 @@ class _SettingEditState extends State<SettingEdit> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(context.l10n.settingsTitle),
         leading: IconButton(
           // Manually create button to avoid focus using tab key.
           icon: const BackButtonIcon(),
-          tooltip: 'Save and go back',
+          tooltip: context.l10n.saveAndGoBack,
           focusNode: FocusNode(skipTraversal: true),
           onPressed: () {
             Navigator.pop(context);
@@ -88,7 +94,7 @@ class _SettingEditState extends State<SettingEdit> {
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.check_rounded),
-            tooltip: 'Save and close',
+            tooltip: context.l10n.saveAndClose,
             focusNode: FocusNode(skipTraversal: true),
             onPressed: () {
               Navigator.pop(context);
@@ -96,7 +102,7 @@ class _SettingEditState extends State<SettingEdit> {
           ),
           IconButton(
             icon: const Icon(Icons.close),
-            tooltip: 'Close without saving',
+            tooltip: context.l10n.closeWithoutSaving,
             focusNode: FocusNode(skipTraversal: true),
             onPressed: () {
               _cancelFlag = true;
@@ -126,7 +132,7 @@ class _SettingEditState extends State<SettingEdit> {
                 AppTheme.gapXl,
               ),
               children: <Widget>[
-                const SectionLabel('Number formatting'),
+                SectionLabel(context.l10n.numberFormatting),
                 const SizedBox(height: AppTheme.gapS),
                 PanelCard(
                   child: Column(
@@ -136,18 +142,14 @@ class _SettingEditState extends State<SettingEdit> {
                           for (var item in NumRepr.values)
                             DropdownMenuItem<int>(
                               value: item.index,
-                              child: Text(
-                                '${item.name.substring(0, 1).toUpperCase()}'
-                                '${item.name.substring(1)}',
-                              ),
+                              child: Text(_notationName(context, item)),
                             ),
                         ],
                         value: prefs.getInt('result_notation') ?? 0,
-                        decoration: const InputDecoration(
-                          labelText: 'Result notation',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.resultNotation,
                           helperText:
-                              'How converted values are written (short, '
-                              'fixed, scientific or engineering)',
+                              context.l10n.resultNotationHelp,
                         ),
                         onChanged: (int? value) {},
                         onSaved: (int? value) async {
@@ -160,19 +162,18 @@ class _SettingEditState extends State<SettingEdit> {
                       TextFormField(
                         initialValue: (prefs.getInt('num_dec_plcs') ?? 8)
                             .toString(),
-                        decoration: const InputDecoration(
-                          labelText: 'Number of decimal places',
-                          helperText: 'Between 0 and 9 digits after the '
-                              'decimal point',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.decimalPlaces,
+                          helperText: context.l10n.decimalPlacesHelp,
                         ),
                         validator: (String? value) {
                           if (value != null && value.isNotEmpty) {
                             var places = int.tryParse(value);
                             if (places == null) {
-                              return 'Must be an integer';
+                              return context.l10n.mustBeInteger;
                             }
                             if (places < 0 || places > 9) {
-                              return 'Must be between 0 and 9';
+                              return context.l10n.mustBeBetween0And9;
                             }
                           }
                           return null;
@@ -190,16 +191,15 @@ class _SettingEditState extends State<SettingEdit> {
                   ),
                 ),
                 const SizedBox(height: AppTheme.gapXl),
-                const SectionLabel('Startup and recent units'),
+                SectionLabel(context.l10n.startupAndRecentUnits),
                 const SizedBox(height: AppTheme.gapS),
                 PanelCard(
                   child: Column(
                     children: <Widget>[
                       BoolFormField(
                         initialValue: prefs.getBool('load_recent') ?? false,
-                        heading: 'Load the most recent units at startup',
-                        subheading: 'Restores the last conversion when the app '
-                            'opens',
+                        heading: context.l10n.loadRecentHeading,
+                        subheading: context.l10n.loadRecentSubheading,
                         onSaved: (bool? value) async {
                           if (value != null) {
                             await prefs.setBool('load_recent', value);
@@ -209,18 +209,18 @@ class _SettingEditState extends State<SettingEdit> {
                       TextFormField(
                         initialValue: (prefs.getInt('recent_unit_count') ?? 12)
                             .toString(),
-                        decoration: const InputDecoration(
-                          labelText: 'Number of saved recent units',
-                          helperText: 'Shown in the recent units menu',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.recentUnitsCount,
+                          helperText: context.l10n.recentUnitsCountHelp,
                         ),
                         validator: (String? value) {
                           if (value != null && value.isNotEmpty) {
                             var count = int.tryParse(value);
                             if (count == null) {
-                              return 'Must be an integer';
+                              return context.l10n.mustBeInteger;
                             }
                             if (count < 0) {
-                              return 'Must be greater than or equal to zero';
+                              return context.l10n.mustBeZeroOrGreater;
                             }
                           }
                           return null;
@@ -246,8 +246,8 @@ class _SettingEditState extends State<SettingEdit> {
                       const SizedBox(height: AppTheme.gapM),
                       BoolFormField(
                         initialValue: prefs.getBool('show_tips') ?? true,
-                        heading: 'Show the tips dialog at startup',
-                        subheading: 'Explains how units can be combined',
+                        heading: context.l10n.showTipsHeading,
+                        subheading: context.l10n.showTipsSubheading,
                         onSaved: (bool? value) async {
                           if (value != null) {
                             await prefs.setBool('show_tips', value);
@@ -258,16 +258,37 @@ class _SettingEditState extends State<SettingEdit> {
                   ),
                 ),
                 const SizedBox(height: AppTheme.gapXl),
-                const SectionLabel('Appearance'),
+                SectionLabel(context.l10n.appearance),
                 const SizedBox(height: AppTheme.gapS),
                 PanelCard(
                   child: Column(
                     children: <Widget>[
+                      // Language first: it is the setting people look for.
+                      DropdownButtonFormField<String>(
+                        items: <DropdownMenuItem<String>>[
+                          for (var code in <String>['system', 'en', 'fr'])
+                            DropdownMenuItem<String>(
+                              value: code,
+                              child: Text(_languageName(context, code)),
+                            ),
+                        ],
+                        value: prefs.getString('language') ?? 'system',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.language,
+                          helperText: context.l10n.languageHelp,
+                        ),
+                        onChanged: (String? value) {},
+                        onSaved: (String? value) async {
+                          if (value != null) {
+                            await prefs.setString('language', value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: AppTheme.gapL),
                       BoolFormField(
                         initialValue: prefs.getBool('dark_theme') ?? false,
-                        heading: 'Dark theme',
-                        subheading: 'Switches the whole interface to the dark '
-                            'palette',
+                        heading: context.l10n.darkTheme,
+                        subheading: context.l10n.darkThemeSubheading,
                         onSaved: (bool? value) async {
                           if (value != null) {
                             await prefs.setBool('dark_theme', value);
@@ -278,18 +299,18 @@ class _SettingEditState extends State<SettingEdit> {
                       TextFormField(
                         initialValue: (prefs.getDouble('view_scale') ?? 1.0)
                             .toString(),
-                        decoration: const InputDecoration(
-                          labelText: 'App view scale ratio',
-                          helperText: 'Valid range is 0.25 to 4.0',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.viewScale,
+                          helperText: context.l10n.viewScaleHelp,
                         ),
                         validator: (String? value) {
                           if (value != null && value.isNotEmpty) {
                             final scale = double.tryParse(value);
                             if (scale == null) {
-                              return 'Must be an number';
+                              return context.l10n.mustBeNumber;
                             }
                             if (scale > 4.0 || scale < 0.25) {
-                              return 'Valid range is 0.25 to 4.0';
+                              return context.l10n.viewScaleHelp;
                             }
                           }
                           return null;
@@ -308,7 +329,7 @@ class _SettingEditState extends State<SettingEdit> {
                 ),
                 if (_isDesktop) ...<Widget>[
                   const SizedBox(height: AppTheme.gapXl),
-                  const SectionLabel('Window'),
+                  SectionLabel(context.l10n.window),
                   const SizedBox(height: AppTheme.gapS),
                   PanelCard(
                     child: Column(
@@ -316,8 +337,8 @@ class _SettingEditState extends State<SettingEdit> {
                         BoolFormField(
                           initialValue:
                               prefs.getBool('save_window_geo') ?? true,
-                          heading: 'Remember window position and size',
-                          subheading: 'Reopens the window where it was closed',
+                          heading: context.l10n.windowGeoHeading,
+                          subheading: context.l10n.windowGeoSubheading,
                           onSaved: (bool? value) async {
                             if (value != null) {
                               await prefs.setBool('save_window_geo', value);
@@ -328,9 +349,8 @@ class _SettingEditState extends State<SettingEdit> {
                         ),
                         BoolFormField(
                           initialValue: prefs.getBool('show_title_bar') ?? true,
-                          heading: 'Show the window title bar',
-                          subheading: 'Turn off for a cleaner look under '
-                              'Wayland',
+                          heading: context.l10n.titleBarHeading,
+                          subheading: context.l10n.titleBarSubheading,
                           onSaved: (bool? value) async {
                             if (value != null) {
                               await prefs.setBool('show_title_bar', value);
@@ -386,7 +406,7 @@ class BoolFormField extends FormField<bool> {
                            crossAxisAlignment: CrossAxisAlignment.start,
                            children: <Widget>[
                              Text(
-                               heading ?? 'Boolean Value',
+                               heading ?? context.l10n.booleanValue,
                                style: theme.textTheme.bodyMedium?.copyWith(
                                  fontWeight: FontWeight.w600,
                                ),
@@ -418,4 +438,30 @@ class BoolFormField extends FormField<bool> {
            );
          },
        );
+}
+
+/// Translated name of a result notation (see [NumRepr]).
+String _notationName(BuildContext context, NumRepr notation) {
+  switch (notation) {
+    case NumRepr.short:
+      return context.l10n.notationShort;
+    case NumRepr.fixed:
+      return context.l10n.notationFixed;
+    case NumRepr.scientific:
+      return context.l10n.notationScientific;
+    case NumRepr.engineering:
+      return context.l10n.notationEngineering;
+  }
+}
+
+/// Name of a language, always written in that language.
+String _languageName(BuildContext context, String code) {
+  switch (code) {
+    case 'en':
+      return context.l10n.languageEnglish;
+    case 'fr':
+      return context.l10n.languageFrench;
+    default:
+      return context.l10n.languageSystem;
+  }
 }

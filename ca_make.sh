@@ -91,6 +91,9 @@ case "$1" in
             echo
         fi
         export PATH="$PATH:`pwd`/flutter/bin"
+        # pub get also generates lib/l10n/app_localizations.dart (see l10n.yaml
+        # and pubspec.yaml: generate: true); the generated file is not versioned.
+        flutter pub get || misc_error "Error - flutter pub get failed"
         flutter build linux --release || misc_error "Error - build failed"
         echo
         echo "ConvertAll build successful"

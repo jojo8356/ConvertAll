@@ -256,7 +256,28 @@ marges `gapXl` / `gapL`. Liens externes ouverts dans le navigateur, liens
 | Raccourcis | dans l'aide | toujours visibles (`KeyHint`) |
 | Sombre | inversion approximative | palette sombre complète, contrastes AA |
 
-## 11. Ce qu'il ne faut pas faire
+## 11. Langue et adaptations
+
+L'interface suit la langue du système au premier démarrage, et peut être
+forcée en anglais ou en français dans *Réglages → Apparence → Langue*. Le
+choix est mémorisé (`prefs`, clé `language`).
+
+* Tous les textes visibles passent par `context.l10n.<clé>` (`AppLocalizations`,
+  généré depuis `lib/l10n/app_*.arb`), jamais par une chaîne en dur ; les
+  modèles sans `BuildContext` utilisent `lookupAppLocalizations`.
+* Le français est environ 15 % plus long que l'anglais : les libellés courts
+  sont préférés (`Unité`, `Type`, `Base`) et aucune largeur de colonne ne
+  dépend du texte (elles sont fixes, dans `unit_table.dart`).
+* Les ressources traduites suivent la langue choisie : `assets/help/fr/` pour
+  l'aide et `assets/units_fr.json` pour les types d'unités (les noms et
+  abréviations d'unités restent en anglais : ce sont les valeurs saisies).
+* Les nombres insérés dans un message (`{base}` dans « Base : {base} »)
+  passent par `intl`, donc par les règles de la langue. Les résultats de
+  conversion, eux, gardent la notation neutre de Dart (point décimal, chiffres
+  tabulaires) : la virgule française n'est pas encore appliquée, car elle
+  changerait les valeurs affichées et copiées.
+
+## 12. Ce qu'il ne faut pas faire
 
 1. Écrire une couleur `Color(0x…)` (ou un `Colors.bleu`) dans une vue : tout
    passe par `theme_model.dart`.
@@ -267,3 +288,5 @@ marges `gapXl` / `gapL`. Liens externes ouverts dans le navigateur, liens
 4. Introduire une police embarquée : la taille du paquet est prioritaire.
 5. Descendre sous 12,5 px pour un texte utile (les mentions légales seules
    peuvent utiliser 11 px).
+6. Écrire un texte visible en dur dans une vue : il doit exister dans
+   `lib/l10n/app_en.arb` et `app_fr.arb` (voir §11).

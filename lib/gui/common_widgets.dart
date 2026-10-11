@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../model/theme_model.dart';
+import '../l10n/l10n.dart';
 
 /// Uppercase label that titles a section, a panel or a field.
 class SectionLabel extends StatelessWidget {
@@ -372,13 +373,13 @@ class ValidityDot extends StatelessWidget {
     final String label;
     if (!hasContent) {
       color = theme.colorScheme.outline;
-      label = 'empty';
+      label = context.l10n.emptyLabel;
     } else if (isValid) {
       color = colors.success;
-      label = 'valid';
+      label = context.l10n.validLabel;
     } else {
       color = colors.danger;
-      label = 'invalid';
+      label = context.l10n.invalidLabel;
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -404,12 +405,12 @@ class ValidityDot extends StatelessWidget {
 /// Icon button that copies [text] and briefly confirms with a check mark.
 class CopyIconButton extends StatefulWidget {
   final String text;
-  final String tooltip;
+  final String? tooltip;
 
   const CopyIconButton({
     super.key,
     required this.text,
-    this.tooltip = 'Copy',
+    this.tooltip,
   });
 
   @override
@@ -451,7 +452,9 @@ class _CopyIconButtonState extends State<CopyIconButton> {
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 30.0, minHeight: 30.0),
-      tooltip: _copied ? 'Copied!' : widget.tooltip,
+      tooltip: _copied
+          ? context.l10n.copied
+          : (widget.tooltip ?? context.l10n.copy),
       onPressed: isEmpty ? null : _copy,
       icon: Icon(
         _copied ? Icons.check_rounded : Icons.copy_rounded,

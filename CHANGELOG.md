@@ -25,6 +25,16 @@
   the old rainbow icon; regenerated for Linux, Android, iOS, Windows, macOS
   and the web, including the hicolor icon theme used by the Linux packages.
 
+- The interface is now translated: English and French, selected in
+  Settings > Appearance > Language ("Follow system" by default, so the app
+  starts in the language of the desktop session). Follows the standard
+  Flutter setup: `l10n.yaml`, `lib/l10n/app_en.arb`, `lib/l10n/app_fr.arb`
+  and the generated `AppLocalizations` class.
+- The Help pages and the unit type names are translated too:
+  `assets/help/fr/` for the 11 help pages and `assets/units_fr.json` for the
+  52 unit types (unit names and abbreviations stay unchanged, since they are
+  the values typed into the conversion fields).
+
 ### Packaging:
 - New `ca_package.sh` tool that builds a size-optimized Linux release bundle
   and packages it as a Debian package and an AppImage for Debian GNU/Linux 12
