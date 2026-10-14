@@ -84,7 +84,7 @@ class UnitConversionResult {
   /// Number of digits used for the decimals.
   final int decimals;
 
-  /// `100 km/hr = 27.77777778 m/s`.
+  /// `100 km/hr = 27.777778 m/s`.
   String get summary => '$valueText $fromText = $formatted $toText';
 
   /// True when the value is an exact rational.
@@ -494,7 +494,7 @@ class ConversionEngine {
       ),
       valueText: normalizeNumberText(value),
       // The expressions as they were given (not the expanded form), so that
-      // the summary reads `100 km/hr = 27.77777778 m/s`.
+      // the summary reads `100 km/hr = 27.777778 m/s`.
       fromText: fromText,
       toText: toText,
       fromReduced: fromGroup.reducedText,
