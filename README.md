@@ -27,6 +27,44 @@ The exact commands, the size optimizations and the release procedure are
 documented in [PACKAGING.md](PACKAGING.md).  The interface follows a
 documented design direction described in [DESIGN.md](DESIGN.md).
 
+# Command line and AI assistants
+
+The conversion engine is also usable without the graphical interface, from the
+same `assets/units.json`:
+
+    $ dart run bin/convertall.dart convert 100 km/hr m/s
+    100 km/hr = 27.77777778 m/s
+    $ dart run bin/convertall.dart --json convert 100 km/hr m/s
+    {"ok":true,"result":"27.77777778","value":27.77777777777778,"from":"km/hr","to":"m/s"}
+
+The commands are `convert`, `units`, `types`, `info`, `compatible`, `mcp` and
+`version`; `--json` gives machine readable results, `--details` explains a
+conversion, `--help` lists the options.  The reference is in
+[docs/CLI.md](docs/CLI.md).
+
+`bin/convertall_mcp.dart` (or `convertall mcp`) is a Model Context Protocol
+server for an AI assistant.  It exposes five read-only tools — convert a
+value, list the quantities, search a unit, describe a unit, and list the units
+compatible with another one — over stdin/stdout, and works with any client
+that speaks the protocol, recent or older:
+
+    {
+      "mcpServers": {
+        "convertall": {
+          "command": "dart",
+          "args": ["run", "/path/to/ConvertAll/bin/convertall_mcp.dart"]
+        }
+      }
+    }
+
+Neither program imports Flutter: they run with the Dart SDK alone, and
+`dart compile exe bin/convertall_mcp.dart -o convertall-mcp` builds a
+standalone binary that needs no SDK at run time.  [docs/MCP.md](docs/MCP.md)
+documents the protocol revision implemented (2026-07-28, plus the older
+`initialize` handshake), the five tools, the client configuration, the
+architecture and the tests.
+
+
 # Translations
 
 The interface, the help pages and the unit type names are available in

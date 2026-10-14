@@ -1,3 +1,53 @@
+---
+## October 14, 2026 - Release 1.0.5
+
+### Updates:
+- New command line tool, `bin/convertall.dart`: `convert` (a value between
+  two units, with compound expressions such as `km/hr` or `kg*m/s^2`), `units`
+  (search the database by name or quantity), `types`, `info` (describe one
+  unit), `compatible` (what a unit can be converted with) and `version`.
+  `--json` returns machine readable results, `--details` explains a
+  conversion, `--notation` and `--decimals` control the display, and the exit
+  status tells a usage error (1) from a refused conversion (2) or unreadable
+  data (3).
+- New Model Context Protocol server, `bin/convertall_mcp.dart` or
+  `convertall mcp`, so that an AI assistant can use the unit database.  It
+  implements revision 2026-07-28 (per request metadata, `server/discover`,
+  `resultType`, caching hints) and also answers the older `initialize`
+  handshake, and it exposes five read-only tools: `convert_value`,
+  `list_unit_types`, `search_units`, `get_unit_info` and
+  `find_compatible_units`, each with an input and an output schema, a readable
+  explanation of a refusal and suggestions for a misspelled unit.
+- The conversion engine is now also available as pure Dart in `lib/core/`
+  (unit database, expression parser, conversion engine), with no Flutter
+  dependency, so the command line tool and the server run with the Dart SDK
+  alone.  It reads the same `assets/units.json` as the graphical application,
+  and `test/core/parity_test.dart` compares both implementations unit by unit
+  and conversion by conversion.
+- The command line tool and the MCP server share their implementation: a
+  command calls the very same tool handler as the server, so both always
+  answer the same thing.
+- New error codes for the command line and the server (`unknown_unit`,
+  `incompatible_units`, `non_linear_unit`, `malformed_value`,
+  `invalid_unit_expression`, `out_of_range`, `circular_definition`), plus
+  close match suggestions for a misspelled unit name.
+- New tests: `test/core/conversion_engine_test.dart` (reference values,
+  non-linear units, notations, refusals), `test/core/parity_test.dart` (the
+  core against the model of the graphical application) and
+  `test/mcp/mcp_server_test.dart` (both protocol eras, the five tools,
+  argument validation, error codes).
+- Documentation: [docs/MCP.md](docs/MCP.md) for the protocol, the tools and
+  the client configuration, [docs/CLI.md](docs/CLI.md) for the command line
+  reference.
+
+### Packaging:
+- New pure Dart dependency `args` for the command line option parsing; the
+  command line tool and the server reuse `decimal` and `eval_ex`, which were
+  already there, and import no Flutter package.
+- `dart compile exe bin/convertall.dart -o convertall` and
+  `dart compile exe bin/convertall_mcp.dart -o convertall-mcp` build standalone
+  binaries; they need `assets/units.json` next to them, or a `--units-file`
+  option, and need no Dart SDK at run time.  The Flutter bundles are unchanged.
 
 ---
 ## October 11, 2026 - Release 1.0.4
