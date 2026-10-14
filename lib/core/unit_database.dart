@@ -21,8 +21,15 @@ import 'dart:convert' show json;
 import 'dart:io' show File;
 
 import 'package:eval_ex/expression.dart';
+import 'package:rational/rational.dart';
 
+import 'exact_math.dart';
+import 'logging.dart';
+import 'sha256.dart';
 import 'unit_exceptions.dart';
+
+/// The logger of the unit data.
+final _log = loggerFor('catalog');
 
 /// Characters used as a minus sign in text typed by hand or copied from a
 /// document: hyphen, non-breaking hyphen, figure dash, en dash, em dash, minus
@@ -117,16 +124,34 @@ class UnitRecord {
     final unabbrev = (data['unabbrev'] as String?) ?? '';
     final comment = (data['comment'] as String?) ?? '';
     var equiv = normalizeExpression((data['equiv'] as String?) ?? '');
-    var factor = 1.0;
+    var factor = Rational.one;
     // A linear unit is stored as "<number> <unit>", e.g. "0.001 kg": the
     // number becomes the factor and the rest is the equivalent unit.  Units
     // with an equation (`fromeqn`) keep their equivalent unchanged, since
     // their factor is the one of the unit they are linearised to.
+    //
+    // The factor is read **exactly** (`1/16.0` is 1/16, `2.176434e-8` is the
+    // decimal it looks like): that is what makes `1 in = 2.54 cm` exact on the
+    // command line.  The float evaluation of `eval_ex` stays as a fallback
+    // for a hand edited catalogue the exact parser does not read.
     if (fromEqn.isEmpty) {
       final parts = equiv.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
       if (parts.length > 1) {
-        final value = tryEvaluateNumber(parts.first);
+        final exact = ExactMath.tryEvaluate(parts.first);
+        final fallback = exact == null
+            ? tryEvaluateNumber(parts.first)
+            : null;
+        final value = exact ??
+            (fallback == null ? null : ExactMath.fromDouble(fallback));
         if (value != null) {
+          if (exact == null) {
+            // A warning, not an error: the conversion still works, but the
+            // result may carry a binary rounding artefact.
+            _log.warning(
+              'the factor "$name = ${parts.first}" is not an exact decimal, '
+              'it is read as ${ExactMath.toExactText(value)}',
+            );
+          }
           factor = value;
           equiv = parts.sublist(1).join(' ');
         }
@@ -162,8 +187,15 @@ class UnitRecord {
   /// `gram`, `!` for a base unit, `!!` for a placeholder).
   final String equiv;
 
-  /// The numeric factor of the equivalent (`0.001` for `gram`).
-  final double factor;
+  /// The exact factor of the equivalent (`1/1000` for `gram`).
+  ///
+  /// Rational and not `double`: a linear conversion multiplies and divides
+  /// these factors, and the result is exact as long as no equation or
+  /// interpolation table is involved (specification §3.4).
+  final Rational factor;
+
+  /// The factor as text: `0.3048`, or `5/9` when the decimal never terminates.
+  String get factorText => ExactMath.toExactText(factor);
 
   /// Equation used to convert *from* the unit (empty for a linear unit).
   final String fromEqn;
@@ -222,11 +254,41 @@ class UnitDatabase {
   final _byType = <String, List<UnitRecord>>{};
   final _byName = <String, UnitRecord>{};
 
+  /// The path of the units file this database was read from, when there is
+  /// one (`null` for the assets embedded in the application).
+  String? sourcePath;
+
+  /// The SHA-256 of the units file, when it was read from disk.
+  String? sourceSha256;
+
+  /// The path of the type name translation file, when there is one.
+  String? typeNamesPath;
+
+  /// Number of units in the database.
+  int get unitCount => units.length;
+
+  /// The canonical (English) type names, sorted.
+  List<String> get canonicalTypes {
+    final types = units.map((unit) => unit.canonicalType).toSet().toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return types;
+  }
+
+  /// The units of a type, in catalogue order.
+  List<UnitRecord> recordsOfType(String type) =>
+      List.unmodifiable(_byType[type] ?? const <UnitRecord>[]);
+
   /// Load the database from the JSON texts.
   ///
   /// [unitsJson] is the content of `assets/units.json`; [typeNamesJson] is the
   /// optional content of a translation file such as `assets/units_fr.json`.
-  static UnitDatabase fromJsonTexts(String unitsJson, {String? typeNamesJson}) {
+  static UnitDatabase fromJsonTexts(
+    String unitsJson, {
+    String? typeNamesJson,
+    String? sourcePath,
+    String? sourceSha256,
+    String? typeNamesPath,
+  }) {
     final typeNames = <String, String>{};
     if (typeNamesJson != null && typeNamesJson.trim().isNotEmpty) {
       final decoded = json.decode(typeNamesJson);
@@ -240,7 +302,11 @@ class UnitDatabase {
     if (decodedUnits is! List) {
       throw UnitDataException('The unit data must be a JSON list of units.');
     }
-    return fromDataList(decodedUnits, typeNames: typeNames);
+    final database = fromDataList(decodedUnits, typeNames: typeNames);
+    database.sourcePath = sourcePath;
+    database.sourceSha256 = sourceSha256;
+    database.typeNamesPath = typeNamesPath;
+    return database;
   }
 
   /// Build the database from an already decoded `units.json`.
@@ -267,6 +333,10 @@ class UnitDatabase {
   }
 
   /// Load the database from files on disk.  Used by the CLI and the MCP server.
+  ///
+  /// The path and the SHA-256 of the file are kept on the database: the JSON
+  /// output and `doctor` report them, so that a result can always be traced
+  /// back to the catalogue that produced it (specification annexe C).
   static UnitDatabase fromFiles({
     required String unitsPath,
     String? typeNamesPath,
@@ -275,6 +345,7 @@ class UnitDatabase {
     if (!unitsFile.existsSync()) {
       throw UnitDataException('Unit data file not found: $unitsPath');
     }
+    _log.info('reading the unit data from $unitsPath');
     String? typeNamesJson;
     if (typeNamesPath != null) {
       final typeNamesFile = File(typeNamesPath);
@@ -282,7 +353,18 @@ class UnitDatabase {
         typeNamesJson = typeNamesFile.readAsStringSync();
       }
     }
-    return fromJsonTexts(unitsFile.readAsStringSync(), typeNamesJson: typeNamesJson);
+    final database = fromJsonTexts(
+      unitsFile.readAsStringSync(),
+      typeNamesJson: typeNamesJson,
+      sourcePath: unitsPath,
+      sourceSha256: sha256HexOfFileSync(unitsPath),
+      typeNamesPath: typeNamesPath,
+    );
+    _log.info(
+      '${database.unitCount} units in ${database.canonicalTypes.length} '
+      'quantities loaded from $unitsPath',
+    );
+    return database;
   }
 
   /// Fill the lookup indexes.  Called once, by the constructor callers.
@@ -299,16 +381,6 @@ class UnitDatabase {
         _byType.putIfAbsent(key, () => <UnitRecord>[]).add(unit);
       }
     }
-  }
-
-  /// Number of units in the database.
-  int get unitCount => units.length;
-
-  /// The canonical (English) type names, sorted.
-  List<String> get canonicalTypes {
-    final types = units.map((unit) => unit.canonicalType).toSet().toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return types;
   }
 
   /// The display type names, sorted (translated when a language pack is used).

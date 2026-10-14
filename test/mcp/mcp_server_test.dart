@@ -164,14 +164,14 @@ void main() {
       expect(result['isError'], isNull);
       final structured = (result['structuredContent'] as Map)
           .cast<String, Object?>();
-      expect(structured['result'], '27.77777778');
+      expect(structured['result'], '27.777778');
       expect(structured['value'], closeTo(27.77777777777778, 1e-9));
       expect(structured['from'], 'km/hr');
       expect(structured['to'], 'm/s');
       final content = (result['content'] as List).cast<Map<String, Object?>>();
       expect(content, hasLength(2));
       expect(content.first['type'], 'text');
-      expect(content.first['text'], contains('27.77777778'));
+      expect(content.first['text'], contains('27.777778'));
       // The specification asks for the serialised JSON in a text block too.
       expect(json.decode(content.last['text']! as String), isA<Map>());
       final meta = (result['_meta'] as Map).cast<String, Object?>();
@@ -214,6 +214,65 @@ void main() {
       expect(structured['from_category'], 'energy');
       expect(structured['notation'], 'short');
       expect(structured['decimals'], 8);
+    });
+
+    test('convert_value reports the exact value and its fraction', () {
+      final result = callTool(server, 'convert_value', {
+        'value': '1',
+        'from': 'in',
+        'to': 'cm',
+        'include_details': true,
+      });
+      final structured = (result['structuredContent'] as Map)
+          .cast<String, Object?>();
+      // 1 in = 2.54 cm exactly: the rational arithmetic of the engine leaves
+      // no binary residue, and the fraction says where the value comes from.
+      expect(structured['result'], '2.54');
+      expect(structured['value'], 2.54);
+      expect(structured['value_exact'], '2.54');
+      expect(structured['as_fraction'], '127/50');
+      expect(structured['exact'], isTrue);
+      expect(structured['factor_exact'], '0.0254');
+      final content = (result['content'] as List).cast<Map<String, Object?>>();
+      expect(content.first['text'], '1 in = 2.54 cm');
+    });
+
+    test('a non-linear conversion is not claimed exact', () {
+      final result = callTool(server, 'convert_value', {
+        'value': '32',
+        'from': 'F',
+        'to': 'C',
+        'include_details': true,
+      });
+      final structured = (result['structuredContent'] as Map)
+          .cast<String, Object?>();
+      // The equation path leaves a 5.7e-14 residue; the engine rounds it away
+      // for the reader, and says that the value is not exact.
+      expect(structured['result'], '0');
+      expect(structured['value'], 0.0);
+      expect(structured['exact'], isFalse);
+      expect(structured.containsKey('value_exact'), isFalse);
+      expect(structured.containsKey('as_fraction'), isFalse);
+      // No multiplier exists between two units that go through an equation.
+      expect(structured['factor'], isNull);
+      expect(structured.containsKey('factor_exact'), isFalse);
+    });
+
+    test('python_compat reproduces the historical floating point result', () {
+      final result = callTool(server, 'convert_value', {
+        'value': '32',
+        'from': 'F',
+        'to': 'C',
+        'python_compat': true,
+      });
+      final structured = (result['structuredContent'] as Map)
+          .cast<String, Object?>();
+      expect(structured['exact'], isFalse);
+      expect(
+        (structured['value'] as num).toDouble(),
+        closeTo(5.684341886080802e-14, 1e-24),
+      );
+      expect(structured['result'], '5.6843419E-14');
     });
 
     test('a failed conversion is reported inside the result', () {

@@ -85,8 +85,12 @@ double? modelConvert(double value, String from, String to) {
 }
 
 /// The value of a conversion with the core engine.
+///
+/// The core answers an exact rational whenever the two units are linear;
+/// [Number.toDouble] gives the double the model computes, so that the two
+/// implementations stay comparable bit for bit.
 double coreConvert(double value, String from, String to) =>
-    coreEngine.convert(value: '$value', from: from, to: to).value;
+    coreEngine.convert(value: '$value', from: from, to: to).value.toDouble();
 
 late core.ConversionEngine coreEngine;
 
@@ -136,7 +140,7 @@ void main() {
         group.isCategoryMatch(gui.UnitGroup()..parse(name));
         final coreGroup = core.UnitGroup.parse(name, coreEngine.database);
         coreGroup.reduce();
-        if (group.factor != coreGroup.factor) {
+        if (group.factor != coreGroup.factor.toDouble()) {
           divergent.add('$name: model ${group.factor} != core ${coreGroup.factor}');
         }
       }
@@ -230,11 +234,26 @@ void main() {
       for (final entry in expectedFactors.entries) {
         final details = coreEngine.describeUnit(entry.key);
         expect(
-          details.factor,
+          details.factor.toDouble(),
           closeTo(entry.value, entry.value * 1e-12),
           reason: entry.key,
         );
       }
+    });
+
+    test('the core keeps the exact factors of the data file', () {
+      // The exact engine reads `1/16.0` as the rational 1/16 and `2.54` as
+      // 127/50, so the multiplications do not accumulate binary rounding.
+      final mile = coreEngine.convert(value: '1', from: 'mile', to: 'km');
+      expect(mile.isExact, isTrue);
+      expect(mile.asFractionText, '201168/125000');
+      expect(mile.value.toDouble(), 1.609344);
+      final inch = coreEngine.convert(value: '1', from: 'in', to: 'cm');
+      expect(inch.value.toDouble(), 2.54);
+      final pounds = coreEngine.convert(value: '1', from: 'pound', to: 'kg');
+      expect(pounds.value.toDouble(), 0.45359237);
+      final ounces = coreEngine.convert(value: '16', from: 'ounce', to: 'pound');
+      expect(ounces.asFractionText, '1');
     });
 
     test('the core rounds a floating point residue to zero', () {

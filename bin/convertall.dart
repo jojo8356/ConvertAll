@@ -3,17 +3,25 @@
 // Copyright (c) 2025, Douglas W. Bell.
 // Free software, GPL v2 or later.
 //
-// Usage:
-//   dart run bin/convertall.dart convert 100 km/hr m/s
-//   dart run bin/convertall.dart units --type volume
-//   dart run bin/convertall.dart mcp          (the MCP server on stdio)
+// The option notation is the one of the ConvertAll Python implementation
+// (`source/cmdline.py`), so a script written for it keeps working:
 //
-// The tool uses only the Dart core libraries and three pure Dart packages
-// (args, decimal, eval_ex): it never imports Flutter, so it runs with the Dart
-// SDK alone.  Compile it into a standalone program with:
+//   dart run bin/convertall.dart 1 in cm
+//   dart run bin/convertall.dart -q -f -d 4 1 in cm
+//   dart run bin/convertall.dart -q -- -40 C F
+//   dart run bin/convertall.dart -i            (interactive mode)
+//   dart run bin/convertall.dart -t            (validate the catalogue)
+//   dart run bin/convertall.dart --json 100 km/hr m/s
+//   dart run bin/convertall.dart --verbose 1 in cm
+//   dart run bin/convertall.dart units --type volume
+//   dart run bin/convertall.dart mcp           (the MCP server on stdio)
+//
+// The tool uses only the Dart core libraries and four pure Dart packages
+// (args, decimal, eval_ex, rational): it never imports Flutter, so it runs
+// with the Dart SDK alone.  Compile it into a standalone program with:
 //   dart compile exe bin/convertall.dart -o convertall
 //
-// See `docs/MCP.md` for the documentation.
+// See `docs/CLI.md` and `docs/MCP.md` for the documentation.
 
 import 'dart:io' show exit, stdout;
 

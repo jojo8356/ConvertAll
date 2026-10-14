@@ -32,15 +32,25 @@ documented design direction described in [DESIGN.md](DESIGN.md).
 The conversion engine is also usable without the graphical interface, from the
 same `assets/units.json`:
 
-    $ dart run bin/convertall.dart convert 100 km/hr m/s
-    100 km/hr = 27.77777778 m/s
-    $ dart run bin/convertall.dart --json convert 100 km/hr m/s
-    {"ok":true,"result":"27.77777778","value":27.77777777777778,"from":"km/hr","to":"m/s"}
+    $ dart run bin/convertall.dart 100 km/hr m/s
+    100 km/hr = 27.777778 m/s
+    $ dart run bin/convertall.dart -q -f -d 4 1 in cm
+    1 in = 2.5400 cm
 
-The commands are `convert`, `units`, `types`, `info`, `compatible`, `mcp` and
-`version`; `--json` gives machine readable results, `--details` explains a
-conversion, `--help` lists the options.  The reference is in
-[docs/CLI.md](docs/CLI.md).
+The options are the ones of the original Python command line tool
+(`-d/--decimals`, `-f`, `-s`, `-e`, `-q`, `-i`, `-x`, `-t/--test`,
+`--test-all`, `-v/--version`, `-h/--help`, and `--` before a negative number),
+and the positional form above is the default command.  The commands are
+`convert`, `units`, `types`, `info`, `compatible`, `check`, `doctor`, `repl`,
+`mcp` and `version`; `--json` gives machine readable results, `--details`
+explains a conversion, `--verbose` traces what the program does.  The
+reference is in [docs/CLI.md](docs/CLI.md).
+
+The arithmetic is exact: the factors of the unit data are decimal fractions,
+multiplied as rationals, so `1 in = 2.54 cm` really is 2.54 and
+`32 F = 0 C` (with `--python-compat` for the historical floating point result
+of the Python tool).  Traces follow the levels of Python's `logging` module,
+and a refused conversion is a warning on stderr, never on stdout.
 
 `bin/convertall_mcp.dart` (or `convertall mcp`) is a Model Context Protocol
 server for an AI assistant.  It exposes five read-only tools — convert a
@@ -57,9 +67,11 @@ that speaks the protocol, recent or older:
       }
     }
 
-Neither program imports Flutter: they run with the Dart SDK alone, and
-`dart compile exe bin/convertall_mcp.dart -o convertall-mcp` builds a
-standalone binary that needs no SDK at run time.  [docs/MCP.md](docs/MCP.md)
+The tools report the exact value too (`value_exact`, `as_fraction`,
+`factor_exact`), and `python_compat` reproduces the floating point result of
+the Python tool.  Neither program imports Flutter: they run with the Dart SDK
+alone, and `dart compile exe bin/convertall_mcp.dart -o convertall-mcp` builds
+a standalone binary that needs no SDK at run time.  [docs/MCP.md](docs/MCP.md)
 documents the protocol revision implemented (2026-07-28, plus the older
 `initialize` handshake), the five tools, the client configuration, the
 architecture and the tests.

@@ -11,20 +11,26 @@
 //    (`unitAtPosition`, `replaceUnit`, `replaceExponent`) are not needed here;
 //  * `reduce()` is idempotent (it restarts from a factor of 1.0) and cannot
 //    crash on a value outside an interpolation table;
-//  * the errors carry a machine readable code (see [UnitErrorCode]).
+//  * the errors carry a machine readable code (see [UnitErrorCode]);
+//  * the numeric factors are exact rationals ([Number]) instead of `double`,
+//    so `1 in = 2.54 cm` is exact (specification §3.4, "deux moteurs").
 //
 // Keep this file in sync with `unit_group.dart`: `test/core/parity_test.dart`
 // compares both implementations on a matrix of conversions and fails when
 // they drift apart.
 
 import 'dart:convert' show json;
-import 'dart:math' as math;
 
 import 'package:decimal/decimal.dart';
 import 'package:eval_ex/expression.dart';
 
+import 'exact_number.dart';
+import 'logging.dart';
 import 'unit_database.dart';
 import 'unit_exceptions.dart';
+
+/// The logger of the expression parser and the conversion arithmetic.
+final _log = loggerFor('units');
 
 /// Common interface of a unit and of a parenthesis subgroup, so that both can
 /// appear in a [UnitGroup].
@@ -60,7 +66,11 @@ class UnitGroup implements UnitItem {
   UnitGroup? reducedGroup;
 
   /// Product of the numeric factors of the units of this group.
-  double factor = 1.0;
+  ///
+  /// An exact rational as long as every unit of the group has an exact factor
+  /// and every exponent is an integer; a float when a fractional exponent
+  /// (`m^1.5`) or a non-linear unit is involved.
+  Number factor = Number.one;
 
   /// False when the text ends on an opened parenthesis (`(m/s`).
   bool parenthClosed = true;
@@ -75,7 +85,7 @@ class UnitGroup implements UnitItem {
     if (clearFirst) {
       unitItems.clear();
       reducedGroup = null;
-      factor = 1.0;
+      factor = Number.one;
       parenthClosed = true;
     }
     var startPos = 0;
@@ -136,7 +146,7 @@ class UnitGroup implements UnitItem {
   void clear() {
     unitItems.clear();
     reducedGroup = null;
-    factor = 1.0;
+    factor = Number.one;
     parenthClosed = true;
   }
 
@@ -240,8 +250,8 @@ class UnitGroup implements UnitItem {
     if (reducedGroup != null || !isValid) return;
     final rawReducedList = <UnitAtom>[];
     var count = 0;
-    // Restart from 1.0 so that the method is idempotent.
-    factor = 1.0;
+    // Restart from one so that the method is idempotent.
+    factor = Number.one;
     final expandedList = flatUnits;
     while (expandedList.isNotEmpty) {
       count += 1;
@@ -263,7 +273,18 @@ class UnitGroup implements UnitItem {
           newUnit.unitExp *= unit.unitExp;
         }
         expandedList.addAll(newList);
-        factor *= math.pow(match.factor, unit.unitExp);
+        // The factor of the unit is raised to the power of its exponent: exact
+        // for an integer exponent (`km/hr` -> `1/3.6`), an approximation for a
+        // fractional one (`m^1.5` is a square root), which the logger reports.
+        final exponent = unit.unitExp;
+        final contribution = Number.exact(match.factor).pow(exponent);
+        if (!contribution.isExact && exponent is double) {
+          _log.debug(
+            'the exponent $exponent of "${match.name}" is not an integer: '
+            'the factor of "$this" is only approximate',
+          );
+        }
+        factor *= contribution;
       }
     }
     rawReducedList.sort(
@@ -310,8 +331,11 @@ class UnitGroup implements UnitItem {
 
   /// Convert [value] from this group into [toGroup].
   ///
-  /// Assumes that [isCategoryMatch] was checked before.
-  double convert(double value, UnitGroup toGroup) {
+  /// Assumes that [isCategoryMatch] was checked before.  The result is exact
+  /// when both groups are linear (`1 in` -> `2.54 cm`); it is a float as soon
+  /// as an equation or an interpolation table is used (`0 C` -> `273.15 K`),
+  /// because those are defined in floating point by the specification.
+  Number convert(Number value, UnitGroup toGroup) {
     var result = value;
     if (isLinear) {
       result *= factor;
@@ -327,23 +351,31 @@ class UnitGroup implements UnitItem {
   }
 
   /// Apply the equation of a non-linear unit, or interpolate its table.
-  double _nonLinearCalc(double value, bool isFrom) {
+  Number _nonLinearCalc(Number value, bool isFrom) {
     final unit = flatUnits.first.unitMatch!;
+    final number = value.toDouble();
     double? result;
     if (unit.toEqn.isNotEmpty) {
-      // Regular equations, e.g. Celsius: "x + 273.15".
+      // Regular equations, e.g. Celsius: "x + 273.15".  They run in double
+      // precision, as the specification requires (§3.4): the equations are
+      // written for `f64` and must give the same answer as the other
+      // implementations.
       try {
         final expr = Expression(isFrom ? unit.fromEqn : unit.toEqn);
-        expr.setDecimalVariable('x', Decimal.parse(value.toString()));
+        expr.setDecimalVariable('x', Decimal.parse(number.toString()));
         result = expr.eval()?.toDouble();
       } on ExpressionException {
         result = null;
       } on FormatException {
         result = null;
       }
+      _log.debug(
+        'equation "${isFrom ? unit.fromEqn : unit.toEqn}" applied to '
+        '$number for "${unit.name}"',
+      );
     } else {
       // Interpolation between the points of a table, e.g. gas mark.
-      result = _interpolate(unit, value, isFrom);
+      result = _interpolate(unit, number, isFrom);
     }
     if (result == null) {
       throw UnitConversionException(
@@ -351,7 +383,7 @@ class UnitGroup implements UnitItem {
         UnitErrorCode.invalidUnitExpression,
       );
     }
-    return result;
+    return Number.approximate(result);
   }
 
   /// Interpolate [value] in the conversion table stored in the unit data.

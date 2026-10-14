@@ -14,8 +14,10 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rational/rational.dart';
 
 import 'package:convertall/core/conversion_engine.dart';
+import 'package:convertall/core/exact_number.dart';
 import 'package:convertall/core/unit_database.dart';
 import 'package:convertall/core/unit_exceptions.dart';
 
@@ -26,10 +28,15 @@ ConversionEngine buildEngine() {
 }
 
 /// Assert that [actual] is within [relative] of [expected].
-void expectClose(double actual, double expected, {double relative = 1e-12}) {
+///
+/// Accepts a [Number] as well as a `double`: the core returns an exact
+/// rational for a conversion between linear units, and its double value is the
+/// one the graphical model computes.
+void expectClose(Object? actual, double expected, {double relative = 1e-12}) {
+  final value = actual is Number ? actual.toDouble() : actual! as num;
   final tolerance = math.max(expected.abs() * relative, 1e-30);
   expect(
-    actual,
+    value,
     closeTo(expected, tolerance),
     reason: '$actual is not within $relative of $expected',
   );
@@ -80,18 +87,26 @@ void main() {
   });
 
   group('values', () {
-    test('reads plain numbers and calculations', () {
-      expect(engine.parseValue('12'), 12.0);
-      expect(engine.parseValue('-3.5'), -3.5);
-      expect(engine.parseValue('1/8'), 0.125);
-      expect(engine.parseValue('3*4+1'), 13.0);
-      expect(engine.parseValue('1e6'), 1000000.0);
+    test('reads plain numbers and calculations exactly', () {
+      // The value itself is exact: `1/8` is the rational 1/8, not the double
+      // 0.125 rounded from a division (the specification §3.4).
+      expect(engine.parseValue('12').asFractionText, '12');
+      expect(engine.parseValue('-3.5').asFractionText, '-7/2');
+      expect(engine.parseValue('1/8').asFractionText, '1/8');
+      expect(engine.parseValue('1/8').isExact, isTrue);
+      expect(engine.parseValue('1/8').toDouble(), 0.125);
+      expect(engine.parseValue('3*4+1').asFractionText, '13');
+      expect(engine.parseValue('1e6').asFractionText, '1000000');
+      expect(engine.parseValue('2.5e-3').asFractionText, '1/400');
+      expect(engine.parseValue('10^3').asFractionText, '1000');
     });
 
     test('tolerates a Unicode minus, digit group spaces and a decimal comma', () {
-      expect(engine.parseValue('\u22125'), -5.0);
-      expect(engine.parseValue('1 000'), 1000.0);
-      expect(engine.parseValue('1,5'), 1.5);
+      expect(engine.parseValue('\u22125').toDouble(), -5.0);
+      // These two forms are not arithmetic: they go through the evaluator of
+      // the graphical application and come back as floats.
+      expect(engine.parseValue('1 000').toDouble(), 1000.0);
+      expect(engine.parseValue('1,5').toDouble(), 1.5);
     });
 
     test('reports a value that cannot be read', () {
@@ -118,7 +133,9 @@ void main() {
     test('converts a compound expression', () {
       final result = engine.convert(value: '100', from: 'km/hr', to: 'm/s');
       expectClose(result.value, 27.77777777777778);
-      expect(result.formatted, '27.77777778');
+      // `%G` with the default precision of 8: eight *significant* digits, the
+      // characters the Python implementation prints.
+      expect(result.formatted, '27.777778');
       expect(result.fromReduced, 'm / s');
       expect(result.toReduced, 'm / s');
       expect(result.fromCategory, 'velocity');
@@ -140,8 +157,9 @@ void main() {
     test('converts a fraction value', () {
       final result = engine.convert(value: '1/8', from: 'cup', to: 'ml');
       expectClose(result.value, 29.5735295625);
-      // The default precision of the application is 8 decimals.
-      expect(result.summary, '1/8 cup = 29.57352956 ml');
+      // The default precision is that of the Python tool: 8 significant
+      // digits in the general notation, so `%G` stops at 29.57353.
+      expect(result.summary, '1/8 cup = 29.57353 ml');
       final precise = engine.convert(
         value: '1/8',
         from: 'cup',
@@ -155,7 +173,7 @@ void main() {
       expectClose(engine.convert(value: '1', from: 'Btu', to: 'J').value, 1055.05585262);
       expect(
         engine.convert(value: '1', from: 'Btu', to: 'J').formatted,
-        '1055.05585262',
+        '1055.0559',
       );
       expect(engine.convert(value: '1', from: 'kWh', to: 'J').formatted, '3600000');
       expectClose(engine.convert(value: '2', from: 'N*m', to: 'J').value, 2.0);
@@ -166,7 +184,7 @@ void main() {
       );
       expect(
         engine.convert(value: '1', from: 'acre', to: 'm^2').formatted,
-        '4046.8564224',
+        '4046.8564',
       );
     });
 
@@ -176,18 +194,31 @@ void main() {
       // parity_test.dart).
       final result = engine.convert(value: '1', from: 'planck mass', to: 'g');
       expectClose(result.value, 2.176434e-05);
-      expect(result.formatted, '0.00002176');
+      // An exponent below 1e-4 switches `%G` to the scientific notation, as in
+      // the Python tool.
+      expect(result.formatted, '2.176434E-05');
     });
 
     test('converts temperatures through their equations', () {
       final boiling = engine.convert(value: '100', from: 'C', to: 'F');
       expectClose(boiling.value, 212.0, relative: 1e-9);
       expect(boiling.formatted, '212');
+      expect(
+        boiling.isExact,
+        isFalse,
+        reason: 'an equation runs in floating point, as the specification asks',
+      );
       final freezing = engine.convert(value: '32', from: 'F', to: 'C');
       // The floating point residue of the equations (5.7e-14) is rounded
       // away: the freezing point is reported as 0, not as 5.68434188608e-14.
-      expect(freezing.value, 0.0);
+      expect(freezing.value.toDouble(), 0.0);
       expect(freezing.formatted, '0');
+      // The compatibility mode reproduces the historical answer, residue and
+      // all, which is what `--python-compat` is for.
+      final compat = ConversionEngine(engine.database, pythonCompat: true)
+          .convert(value: '32', from: 'F', to: 'C');
+      expect(compat.value.toDouble(), isNot(0.0));
+      expect(compat.formatted, startsWith('5.684'));
       expectClose(engine.convert(value: '0', from: 'C', to: 'K').value, 273.15);
       expectClose(engine.convert(value: '20', from: 'C', to: 'C').value, 20.0);
     });
@@ -338,35 +369,58 @@ void main() {
   });
 
   group('formatting', () {
-    test('writes the short notation like the application', () {
-      expect(ConversionEngine.formatValue(0.0), '0');
-      expect(ConversionEngine.formatValue(100.0), '100');
-      expect(ConversionEngine.formatValue(1.609344), '1.609344');
-      expect(ConversionEngine.formatValue(1 / 3), '0.33333333');
-      expect(ConversionEngine.formatValue(1e8), '1e+8');
-      expect(ConversionEngine.formatValue(2.5e-9), '2.5e-9');
+    test('writes the notation of the Python implementation', () {
+      // `%G` with 8 significant digits: the exact characters the historical
+      // command line prints.
+      expect(ConversionEngine.formatValue(Number.approximate(0.0)), '0');
+      expect(ConversionEngine.formatValue(Number.approximate(100.0)), '100');
+      expect(ConversionEngine.formatValue(Number.approximate(1.609344)), '1.609344');
+      expect(ConversionEngine.formatValue(Number.approximate(1 / 3)), '0.33333333');
+      expect(ConversionEngine.formatValue(Number.approximate(1e8)), '1E+08');
+      expect(ConversionEngine.formatValue(Number.approximate(2.5e-9)), '2.5E-09');
+    });
+
+    test('renders an exact rational without a rounding artefact', () {
+      expect(
+        ConversionEngine.formatValue(Number.exact(Rational.parse('2.54'))),
+        '2.54',
+      );
+      // 1/16 has a terminating decimal, 5/9 does not: the first is printed as
+      // a decimal, the second is rounded to the notation.
+      expect(
+        ConversionEngine.formatValue(Number.exact(Rational.fromInt(1, 16)), decimals: 12),
+        '0.0625',
+      );
+      expect(
+        ConversionEngine.formatValue(Number.exact(Rational.fromInt(5, 9))),
+        '0.55555556',
+      );
     });
 
     test('honours the number of decimals', () {
       expect(
-        ConversionEngine.formatValue(1 / 3, notation: NumberNotation.fixed, decimals: 3),
+        ConversionEngine.formatValue(
+          Number.approximate(1 / 3),
+          notation: NumberNotation.fixed,
+          decimals: 3,
+        ),
         '0.333',
       );
       expect(
         ConversionEngine.formatValue(
-          1 / 3,
+          Number.approximate(1 / 3),
           notation: NumberNotation.scientific,
           decimals: 2,
         ),
-        '3.33e-1',
+        '3.33E-01',
       );
       expect(
         ConversionEngine.formatValue(
-          1234.5,
+          Number.approximate(1234.5),
           notation: NumberNotation.engineering,
           decimals: 4,
         ),
-        '1.2345e+3',
+        '1.2345E+03',
       );
     });
 
@@ -386,6 +440,39 @@ void main() {
         decimals: 2,
       );
       expect(result.formatted, '1609.34');
+    });
+
+    test('keeps the exact value of a linear conversion', () {
+      final inch = engine.convert(value: '1', from: 'in', to: 'cm');
+      expect(inch.isExact, isTrue);
+      expect(inch.asFractionText, '127/50');
+      expect(inch.exactValueText, '2.54');
+      expect(inch.formatted, '2.54');
+      expect(inch.summary, '1 in = 2.54 cm');
+      final json = inch.toJson();
+      expect(json['value'], 2.54);
+      expect(json['value_exact'], '2.54');
+      expect(json['exact'], true);
+      expect(json['as_fraction'], '127/50');
+      // A conversion through an equation has no exact value.
+      final celsius = engine.convert(value: '100', from: 'C', to: 'F');
+      expect(celsius.isExact, isFalse);
+      expect(celsius.exactValueText, isNull);
+      expect(celsius.toJson()['value_exact'], isNull);
+      expect(celsius.toJson()['as_fraction'], isNull);
+      expect(celsius.toJson()['exact'], false);
+    });
+
+    test('writes the multiplier as a number and as an exact string', () {
+      final result = engine.convert(value: '1', from: 'mile', to: 'km');
+      expect(result.factor!.toDouble(), 1.609344);
+      expect(result.toJson()['factor'], 1.609344);
+      expect(result.toJson()['factor_exact'], '1.609344');
+      expect(
+        engine.convert(value: '1', from: 'C', to: 'F').factor,
+        isNull,
+        reason: 'a non-linear conversion has no constant multiplier',
+      );
     });
   });
 }

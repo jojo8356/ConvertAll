@@ -230,6 +230,15 @@ McpTool _convertValueTool(ConversionEngine engine) {
               'Useful to double check that both units belong to the same '
               'quantity.',
         },
+        'python_compat': {
+          'type': 'boolean',
+          'default': false,
+          'description':
+              'Compute the factors as floating point numbers and keep the '
+              'rounding residues, exactly like the historical ConvertAll '
+              'Python implementation (the --python-compat option of the '
+              'command line). Only useful to reproduce an old result.',
+        },
       },
       'required': ['value', 'from', 'to'],
       'additionalProperties': false,
@@ -265,8 +274,35 @@ McpTool _convertValueTool(ConversionEngine engine) {
         'to_category': {'type': 'string'},
         'notation': {'type': 'string'},
         'decimals': {'type': 'integer'},
+        'exact': {
+          'type': 'boolean',
+          'description':
+              'True when the result is exact: the conversion only involved '
+              'linear units, whose factors are rationals. False when an '
+              'equation or an interpolation table was used.',
+        },
+        'value_exact': {
+          'type': 'string',
+          'description':
+              'The exact value as a decimal string, or as a fraction such as '
+              '"5/9" when its decimal expansion never ends. Absent when the '
+              'value is not exact.',
+        },
+        'factor_exact': {
+          'type': 'string',
+          'description':
+              'The multiplier between the two units, written exactly '
+              '("0.3048", "5/9"). Absent when a non-linear unit is involved.',
+        },
+        'as_fraction': {
+          'type': 'string',
+          'description':
+              'The exact value as a reduced fraction ("127/50"), which is the '
+              'same number as `value_exact` when that one is a fraction. '
+              'Absent when the value is not exact.',
+        },
       },
-      'required': ['result', 'value', 'from', 'to'],
+      'required': ['result', 'value', 'from', 'to', 'exact'],
       'additionalProperties': false,
     },
     annotations: const ToolAnnotations(title: 'Convert a value between units'),
@@ -301,6 +337,7 @@ McpTool _convertValueTool(ConversionEngine engine) {
       final decimalsArgument = arguments['decimals'];
       final decimals = decimalsArgument is num ? decimalsArgument.toInt() : null;
       final detailed = arguments['include_details'] == true;
+      final compat = arguments['python_compat'];
       try {
         final result = engine.convert(
           value: value is num ? '$value' : value as String,
@@ -308,6 +345,7 @@ McpTool _convertValueTool(ConversionEngine engine) {
           to: to,
           notation: notation,
           decimals: decimals,
+          pythonCompat: compat is bool ? compat : null,
         );
         return ToolOutcome.success(
           _conversionText(result, detailed),
@@ -400,9 +438,9 @@ McpTool _searchUnitsTool(ConversionEngine engine) {
         'limit': {
           'type': 'integer',
           'minimum': 1,
-          'maximum': 200,
+          'maximum': 500,
           'default': 25,
-          'description': 'Maximum number of units to return.',
+          'description': 'Maximum number of units to return (1 to 500).',
         },
       },
       'additionalProperties': false,
@@ -487,10 +525,11 @@ McpTool _getUnitInfoTool(ConversionEngine engine) {
         'compatible_limit': {
           'type': 'integer',
           'minimum': 0,
-          'maximum': 200,
+          'maximum': 500,
           'default': 15,
           'description':
-              'Number of compatible units to include (0 lists none of them).',
+              'Number of compatible units to include (0 to 500, default 15; '
+              '0 lists none of them).',
         },
       },
       'required': ['unit'],
@@ -506,6 +545,12 @@ McpTool _getUnitInfoTool(ConversionEngine engine) {
         'factor': {
           'type': 'number',
           'description': 'Multiplier to the base units.',
+        },
+        'factor_exact': {
+          'type': 'string',
+          'description':
+              'Multiplier to the base units written exactly, when it is an '
+              'exact rational ("0.3048", "5/9").',
         },
         'base_units': {'type': 'string', 'description': 'Reduced base units.'},
         'non_linear': {'type': 'boolean'},
@@ -557,7 +602,8 @@ McpTool _getUnitInfoTool(ConversionEngine engine) {
         buffer.write('\nDefined as: ${details.unit.equiv}');
         buffer.write(
           '\nBase units: ${details.reduced} '
-          '(multiplier ${ConversionEngine.formatValue(details.factor)})',
+          '(multiplier ${ConversionEngine.formatValue(details.factor, '
+          'decimals: 12)})',
         );
         if (details.unit.comment.isNotEmpty) {
           buffer.write('\nComment: ${details.unit.comment}');

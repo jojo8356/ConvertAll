@@ -25,10 +25,14 @@ import 'package:args/args.dart';
 import 'package:convertall/cli/database_locator.dart';
 import 'package:convertall/core/app_info.dart';
 import 'package:convertall/core/conversion_engine.dart';
+import 'package:convertall/core/logging.dart';
 import 'package:convertall/core/unit_exceptions.dart';
 import 'package:convertall/mcp/mcp_protocol.dart';
 import 'package:convertall/mcp/mcp_server.dart';
 import 'package:convertall/mcp/mcp_stdio.dart';
+
+/// The logger of the server, shared by every module through [Logging].
+final _log = loggerFor('mcp.server');
 
 Future<void> main(List<String> arguments) async {
   final status = await _run(arguments);
@@ -47,14 +51,24 @@ Future<int> _run(List<String> arguments) async {
       abbr: 'l',
       help: 'Language of the unit type names: en (default), fr, or auto.',
     )
+    ..addOption(
+      'log-level',
+      help: 'trace, debug, info, warning, error or critical (default warning).',
+    )
+    ..addOption('log-file', help: 'Also append the log records to this file.')
+    ..addOption(
+      'log-format',
+      allowed: ['text', 'json'],
+      defaultsTo: 'text',
+      help: 'Format of the log records.',
+    )
     ..addFlag(
       'verbose',
-      abbr: 'v',
       negatable: false,
-      help: 'Trace the protocol exchanges on stderr.',
+      help: 'Trace the protocol exchanges (same as --log-level=debug).',
     )
     ..addFlag('help', abbr: 'h', negatable: false)
-    ..addFlag('version', negatable: false);
+    ..addFlag('version', abbr: 'v', negatable: false);
   ArgResults results;
   try {
     results = parser.parse(arguments);
@@ -68,10 +82,18 @@ Future<int> _run(List<String> arguments) async {
     return 0;
   }
   if (results.flag('version')) {
-    stdout.writeln(convertAllVersion);
+    stdout.writeln('ConvertAll $convertAllVersion (Dart) — MCP server');
     return 0;
   }
-  final verbose = results.flag('verbose');
+  Logging.clearSinks();
+  final level = Logging.configureFromOptions(
+    quiet: false,
+    verbose: results.flag('verbose'),
+    explicitLevel: results.option('log-level'),
+    logFile: results.option('log-file'),
+    json: results.option('log-format') == 'json',
+  );
+  final verbose = level.severity <= LogLevel.debug.severity;
   try {
     final database = loadDatabase(
       unitsFile: results.option('units-file'),
@@ -81,21 +103,22 @@ Future<int> _run(List<String> arguments) async {
     final server = McpServer(
       engine: engine,
       serverVersion: convertAllVersion,
-      logger: verbose
-          ? (message) => stderr.writeln('[convertall-mcp] $message')
-          : null,
+      logger: verbose ? _log.debug : null,
     );
-    if (verbose) {
-      stderr.writeln(
-        '[convertall-mcp] ready: ${database.unitCount} units, protocol '
-        'revision $modernProtocolVersion (legacy handshake accepted)',
-      );
-    }
+    _log.info(
+      'ready: ${database.sourcePath} (${database.unitCount} units, sha256 '
+      '${database.sourceSha256}), protocol revision $modernProtocolVersion, '
+      'legacy handshake accepted',
+    );
+    _log.debug('log level: ${level.label}');
     installTerminationHandlers(verbose: verbose);
     return await runStdioMcpServer(server, verbose: verbose);
   } on UnitDataException catch (error) {
+    _log.error('the unit data could not be loaded', error: error);
     stderr.writeln('convertall-mcp: $error');
     return 3;
+  } finally {
+    await Logging.flush();
   }
 }
 

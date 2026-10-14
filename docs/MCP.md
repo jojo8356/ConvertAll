@@ -1,7 +1,7 @@
 # ConvertAll — serveur MCP et interface en ligne de commande
 
 - Version du document : 1.0 — 14 octobre 2026
-- Concerne : ConvertAll 1.0.5 et suivants (`lib/core/`, `lib/cli/`, `lib/mcp/`,
+- Concerne : ConvertAll 1.0.6 et suivants (`lib/core/`, `lib/cli/`, `lib/mcp/`,
   `bin/`)
 - Référence de la ligne de commande : [CLI.md](CLI.md)
 
@@ -50,12 +50,13 @@ Exemple de session (client → serveur, puis serveur → client) :
 
 ```json
 {"jsonrpc":"2.0","id":1,"result":{"content":[
-  {"type":"text","text":"100 km/hr = 27.77777778 m/s"},
-  {"type":"text","text":"{\"result\":\"27.77777778\",\"value\":27.77777777777778,\"from\":\"km/hr\",\"to\":\"m/s\"}"}],
-  "structuredContent":{"result":"27.77777778","value":27.77777777777778,
-                       "from":"km/hr","to":"m/s"},
+  {"type":"text","text":"100 km/hr = 27.777778 m/s"},
+  {"type":"text","text":"{\"result\":\"27.777778\",\"value\":27.77777777777778,\"from\":\"km/hr\",\"to\":\"m/s\",\"exact\":true,\"value_exact\":\"250/9\"}"}],
+  "structuredContent":{"result":"27.777778","value":27.77777777777778,
+                       "from":"km/hr","to":"m/s","exact":true,
+                       "value_exact":"250/9","as_fraction":"250/9"},
   "resultType":"complete",
-  "_meta":{"io.modelcontextprotocol/serverInfo":{"name":"convertall","version":"1.0.5","title":"ConvertAll unit conversion","description":"Unit conversion server backed by the unit database of the ConvertAll application.","websiteUrl":"http://convertall.bellz.org"}}}}
+  "_meta":{"io.modelcontextprotocol/serverInfo":{"name":"convertall","version":"1.0.6","title":"ConvertAll unit conversion","description":"Unit conversion server backed by the unit database of the ConvertAll application.","websiteUrl":"http://convertall.bellz.org"}}}}
 ```
 
 ---
@@ -142,9 +143,17 @@ Options communes :
 | --- | --- |
 | `--units-file CHEMIN` | chemin de `units.json` (défaut : recherche automatique) |
 | `-l`, `--language LANG` | langue des noms de quantités : `en` (défaut), `fr`, `auto` |
-| `-v`, `--verbose` | trace chaque échange du protocole sur **stderr** |
-| `--version` | affiche le numéro de version et sort |
+| `--log-level NIVEAU` | sévérité des traces : `trace`, `debug`, `info`, `warning` (défaut), `error`, `critical` |
+| `--verbose` | trace les échanges du protocole (équivaut à `--log-level=debug`) |
+| `--log-file CHEMIN` | recopie aussi les traces dans ce fichier (ajout en fin) |
+| `--log-format text\|json` | format des traces (défaut `text`) |
+| `-v`, `--version` | affiche le numéro de version et sort |
 | `-h`, `--help` | affiche l'aide et sort |
+
+Les options de journalisation sont **celles de la ligne de commande**
+(`lib/cli/options.dart`) : même système, mêmes niveaux, même format JSON, seule
+la destination change — le serveur réserve `stdout` au protocole et écrit donc
+toutes ses traces sur `stderr`.
 
 Recherche du fichier de données, dans l'ordre : `--units-file`, puis la
 variable d'environnement `CONVERTALL_UNITS_FILE`, puis une liste d'emplacements
@@ -267,10 +276,24 @@ Arguments :
 | `notation` | `short` \| `fixed` \| `scientific` \| `engineering` | non | `short` | écriture du résultat |
 | `decimals` | entier 0–15 | non | `8` | nombre de décimales |
 | `include_details` | booléen | non | `false` | ajoute unités de base, multiplicateur et grandeur |
+| `python_compat` | booléen | non | `false` | calcule en flottant comme le Python historique (`--python-compat` de la ligne de commande) |
 
-Sortie : `result` (chaîne affichée), `value` (nombre), `from`, `to`, et si
-`include_details` : `from_reduced`, `to_reduced`, `factor`, `from_category`,
-`to_category`, `notation`, `decimals`.
+Sortie : `result` (chaîne affichée), `value` (nombre), `from`, `to`, `exact`
+(vrai si la conversion n'a utilisé que des unités linéaires), `value_exact`
+(le décimal exact, ou une fraction comme `5/9`, quand `exact` est vrai), et si
+`include_details` : `from_reduced`, `to_reduced`, `factor`, `factor_exact`,
+`from_category`, `to_category`, `notation`, `decimals`.
+
+**Les résultats sont exacts.** Les facteurs du catalogue sont des fractions
+décimales, multipliées comme des rationnels : `1 in` vaut `2.54 cm` au chiffre
+près (`value_exact: "2.54"`, `as_fraction: "127/50"`), et non
+`2.5400000000000005`. Un calcul qui passe par une équation (C, F, gas mark,
+liter per 100 km, screw size) retombe en flottant : `exact` vaut alors `false`,
+`value_exact` est absent, et `factor` vaut `null` (il n'existe pas de
+multiplicateur entre deux unités non linéaires). Le résidu d'une équation
+(32 °F → 5.6843…e-14 °C) est arrondi à zéro, exactement comme sur la ligne de
+commande ; `python_compat: true` le laisse apparaître pour comparer avec
+l'ancien programme. Voir [CLI.md §9](CLI.md).
 
 ```json
 {"name":"convert_value","arguments":{"value":"60","from":"mi/hr","to":"km/hr"}}
@@ -281,7 +304,7 @@ Sortie : `result` (chaîne affichée), `value` (nombre), `from`, `to`, et si
 ```
 
 ```json
-{"result":"96.56064","value":96.56063999999999,"from":"mi/hr","to":"km/hr"}
+{"result":"96.56064","value":96.56064,"from":"mi/hr","to":"km/hr","exact":true,"value_exact":"96.56064","as_fraction":"301752/3125"}
 ```
 
 Cas d'erreur typiques (tous en `isError: true`, avec `error_code` dans le
@@ -426,7 +449,7 @@ retour supplémentaire) et, en `_meta`, la fiche `serverInfo` :
 de cache : les clients plus anciens ne connaissent pas ces champs.
 
 Un appel d'outil réussi renvoie un ou deux blocs de texte : le premier est la
-phrase lisible (« 100 km/hr = 27.77777778 m/s »), le second la version JSON,
+phrase lisible (« 100 km/hr = 27.777778 m/s »), le second la version JSON,
 comme le recommande la spécification pour les clients qui ne lisent pas encore
 `structuredContent`.
 
@@ -456,12 +479,22 @@ corrige son appel.
 
 ### 8.6 Journalisation
 
-Le serveur n'envoie **aucune** notification `notifications/message` : la
-spécification n'autorise un serveur à en émettre que pour une requête qui
-portait un `logLevel` dans ses `_meta`, et la journalisation est dépréciée par
-la révision 2026-07-28. Les traces utiles existent en revanche côté processus :
-`--verbose` les écrit sur **stderr**, où le client peut les lire sans perturber
-le protocole. `logLevel` est donc accepté et sans effet.
+Deux journaux distincts, à ne pas confondre :
+
+| Canal | Destinataire | Contenu |
+| --- | --- | --- |
+| notifications `notifications/message` | le client MCP | **rien** : la spécification n'autorise un serveur à en émettre que pour une requête portant un `logLevel` dans ses `_meta`, et la journalisation est dépréciée par la révision 2026-07-28. `logLevel` est donc accepté et sans effet. |
+| traces du processus (`stderr`) | l'opérateur, le journal système | le système complet de `lib/core/logging.dart`, partagé avec la ligne de commande : niveaux et sévérités de `logging` en Python, facilités nommées, format texte ou JSON. |
+
+Le serveur journalise son démarrage (`mcp.server: ready: <fichier> (626 units,
+sha256 …), protocol revision 2026-07-28, legacy handshake accepted`), le niveau
+retenu, puis chaque échange (`<- tools/call`, `-> error for …`) en `debug` :
+
+    $ dart run bin/convertall_mcp.dart --log-level debug --log-file /tmp/mcp.log 2>/dev/null
+
+`warning` (le défaut) suffit en usage courant : seuls les incidents — unité
+inconnue, données illisibles — apparaissent. `--verbose` reste accepté comme
+raccourci de `--log-level=debug`.
 
 ### 8.7 Cache
 
@@ -476,7 +509,7 @@ confirme que la liste ne changera pas pendant la vie du processus.
 
 - **une ligne = un message** ; `json.encode` n'insère aucun saut de ligne, il
   n'y a donc jamais de JSON multi-ligne ;
-- **stdout ne contient que les réponses** ; toute trace (`--verbose`,
+- **stdout ne contient que les réponses** ; toute trace (`--verbose`, `--log-level`,
   avertissements, démarrage) va sur stderr ;
 - les lignes vides sont ignorées ;
 - la fermeture de stdin est le signal d'arrêt normal : le serveur finit les
@@ -497,6 +530,12 @@ lib/core/                     moteur de conversion, Dart pur (aucun import Flutt
   unit_database.dart          lecture de units.json, index par nom, recherche partielle
   unit_expression.dart        analyse « km/hr », réduction en unités de base, conversion
   conversion_engine.dart      API de haut niveau : convert(), parseValue(), describeUnit(), …
+  exact_math.dart             arithmétique rationnelle exacte (package:rational) : facteurs,
+                              puissances entières, arrondis, mise en forme %G/%f/%E
+  exact_number.dart           `Number` = valeur exacte ou flottante, formatée pour l'affichage
+  number_notation.dart        notations (short, fixed, scientific, engineering) et leurs alias
+  logging.dart                niveaux, sévérités, facilités, sinks stderr/fichier/mémoire
+  sha256.dart                 empreinte du catalogue (identité de ce qui a répondu)
   unit_json.dart              forme JSON d'une unité, partagée CLI/MCP
   app_info.dart               version et site du projet
 lib/mcp/                      le protocole
@@ -507,8 +546,11 @@ lib/mcp/                      le protocole
   mcp_server.dart             le serveur : ères, méthodes, résultats, erreurs
   mcp_stdio.dart              transport stdio, gestion des signaux
 lib/cli/
+  options.dart                la notation des arguments, calquée sur l'outil Python
+  cli_app.dart                commandes, sorties texte/JSON, journalisation
+  catalog_check.dart          validation du catalogue (`check`, `-t`, `--test-all`)
+  repl.dart                   mode interactif (`-i`), celui de l'outil Python
   database_locator.dart       recherche et chargement des données, langues
-  cli_app.dart                commandes, sorties texte/JSON
 bin/convertall.dart           entrée de la ligne de commande
 bin/convertall_mcp.dart       entrée du serveur MCP
 ```
@@ -539,23 +581,38 @@ moteur commun et faire dépendre `lib/model/` de `lib/core/` ; ce n'est pas fait
 ici parce que cela toucherait l'application graphique, qui doit continuer de
 fonctionner.
 
-**2. Les mêmes gestionnaires pour les deux interfaces.** `lib/cli/cli_app.dart`
-n'implémente pas la conversion : il appelle les outils de `lib/mcp/mcp_tools.dart`
-et affiche leur résultat. `convertall convert 100 km/hr m/s` et un appel MCP
-`convert_value` exécutent le **même** code, donc rendent la même valeur, les
-mêmes messages et les mêmes suggestions. Une correction d'ergonomie profite
-toujours aux deux.
+**2. Un moteur, deux interfaces.** Ni `lib/cli/cli_app.dart` ni
+`lib/mcp/mcp_tools.dart` n'implémentent la conversion : l'un et l'autre
+construisent la même requête sur `lib/core/conversion_engine.dart` (qui, lui,
+s'appuie sur `unit_expression.dart`, `exact_math.dart` et `logging.dart`).
+`convertall 100 km/hr m/s` et un appel MCP `convert_value` exécutent donc
+**le même** calcul et rendent la même valeur, les mêmes messages et les mêmes
+suggestions — y compris l'exactitude (`value_exact`, `as_fraction`,
+`factor_exact`) et l'option `--python-compat` / `python_compat`. Une correction
+profite toujours aux deux.
+
+**3. L'arithmétique est exacte par défaut.** Les facteurs du fichier de données
+sont lus comme des fractions décimales (`Rational`, sur `BigInt`), les
+puissances entières sont exactes, l'affichage arrondit « demi au pair ». Le
+calcul ne repasse en flottant que là où le catalogue le demande (équations de
+température, interpolation des gas marks) ; `exact` le dit, et
+`--python-compat` reproduit bit à bit l'ancien calcul en `double`. Voir
+[CLI.md §9](CLI.md).
 
 ---
 
 ## 10. Tests
 
-    $ flutter test test/core/ test/mcp/
+    $ flutter test test/core/ test/mcp/ test/cli/
 
 | Fichier | Ce qu'il vérifie |
 | --- | --- |
-| `test/core/conversion_engine_test.dart` | valeurs de référence (27.77777778 m/s, 96.56064 km/hr, 1055.05585262 J, 212 °F, ...), unités non linéaires (C, F, gas mark, liter per 100 km), notations, refus et codes d'erreur, suggestions |
+| `test/core/conversion_engine_test.dart` | valeurs de référence (250/9 m/s, 96.56064 km/hr, 1055.05585262 J, 212 °F, ...), unités non linéaires (C, F, gas mark, liter per 100 km), notations, exactitude (`value_exact`, `as_fraction`, `--python-compat`), refus et codes d'erreur, suggestions |
+| `test/core/exact_math_test.dart` | arithmétique rationnelle, arrondis « demi au pair », les quatre notations comparées aux sorties de Python |
 | `test/core/parity_test.dart` | parité entre `lib/core/` et le modèle de l'application (`lib/model/`) sur des expressions et des conversions |
+| `test/core/logging_test.dart` | niveaux, filtrage, choix du niveau (option, `--verbose`, `--quiet`, environnement), formats texte et JSON |
+| `test/core/sha256_test.dart` | l'empreinte du catalogue (vecteurs FIPS 180-4) |
+| `test/cli/cli_test.dart` | la ligne de commande de bout en bout, sorties capturées en mémoire : notation Python, codes 0/1/2/3, JSON, traces, mode interactif |
 | `test/mcp/mcp_server_test.dart` | les deux ères, `server/discover`, `tools/list`, les cinq outils, validation des arguments, codes d'erreur, notifications, `ping`, cache |
 
 Vérification manuelle d'un outil, sans client MCP :
@@ -577,7 +634,7 @@ Vérification manuelle d'un outil, sans client MCP :
 | Transport stdio seulement | c'est le transport attendu par les clients de bureau ; `streamable-http` demanderait la gestion des en-têtes `Mcp-*`, des sessions et de l'authentification, sans usage local identifié |
 | Pas de `resources`/`prompts` | sans valeur pour un convertisseur (voir §7) |
 | Pas de pagination | les listes servies sont bornées (`limit` ≤ 500) et tiennent en une réponse |
-| Journalisation MCP absente | dépréciée en 2026-07-28 ; les traces vont sur stderr |
+| Notifications `notifications/message` absentes | la journalisation MCP est dépréciée en 2026-07-28 ; les traces passent par le système complet de `lib/core/logging.dart`, sur `stderr` et dans `--log-file` |
 | `lib/core/` duplique l'algorithme de `lib/model/` | choix assumé le temps de la transition, surveillé par `parity_test.dart` (§9) |
 | Devises non converties | la base ConvertAll n'a pas de taux de change (et cela demanderait un réseau, donc un comportement non reproductible) |
 
