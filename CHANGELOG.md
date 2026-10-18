@@ -1,3 +1,141 @@
+---
+## October 14, 2026 - Release 1.0.6
+
+### Updates:
+- The unit table is now responsive: its comment column grows with the window,
+  wraps text in narrow layouts, and gives each row the height required to show
+  the full comment, including when accessibility text scaling is enabled.
+- The command line tool now follows the argument notation of the reference
+  Python tool (the `ConvertAll-py` repository: `source/cmdline.py` and its
+  `doc/CLI_RUST_CAHIER_DES_CHARGES.md` specification).  Same short and long
+  options as there — `-d/--decimals` (0 to 12, with the historical message
+  `Decimals must be an integer from 0 to 12.` outside the range), `-f`, `-s`,
+  `-e`, `-q`, `-i`, `-x`, `-t/--test`, `--test-all`, `-v/--version`, `-h/--help`
+  — and the same positional form, `convertall 1 in cm`, printing
+  `1 in = 2.54 cm`.  `--` separates a negative number from the options, and a
+  command may be spelled out (`convertall convert 1 in cm`) as in the
+  specification.
+- Same exit statuses as the Python tool (0 success, 1 conversion or data
+  error, 2 usage error, 130 interrupted) plus 3 for an unreadable or rejected
+  unit catalogue; same messages wherever the Python tool has one, with the
+  machine readable `error_code` of the application added.
+- New commands: `check` (validate the catalogue: every unit is parsed, reduced
+  to its base units, its factor checked and its equation evaluated) with
+  `--all` for the translations, `doctor` (version, platform, language, and the
+  catalogue really read, with its SHA-256), `repl` and `-i` (the interactive
+  session of the Python tool: a value, `r`everse, `n`ew, `q`uit), `mcp`, and
+  `help COMMAND`.  `--json` writes the schema documented in
+  [docs/CLI.md](docs/CLI.md), with `value_exact`, `as_fraction` and
+  `factor_exact`.
+- **Exact arithmetic.**  The conversion factors of `assets/units.json` are read
+  as decimal fractions and multiplied as rationals (`package:rational`, on
+  `BigInt`), so `1 in = 2.54 cm`, `1 mile = 1.609344 km` and
+  `1/8 cup` exactly `29.5735295625 ml`, and the display has no binary
+  residue: `32 F = 0 C`, where it used to read `5.68434188608e-14 C`.  Values
+  are rounded half to even before display, as Python's `decimal` module does,
+  and the four notations (`short`, `fixed`, `scientific`, `engineering`)
+  reproduce the formats of the Python tool (`%G`, `%f`, `%E`) to the character
+  — including the rule of `%G` that `-d 8` means eight *significant* digits,
+  so `100 km/hr` in `m/s` reads `27.777778` and not `27.77777778`.
+- `--python-compat` (and `python_compat` for the MCP tool `convert_value`)
+  computes the factors in floating point and keeps the residues, so an old
+  result can be reproduced bit for bit.
+- **New logging system** (`lib/core/logging.dart`), shared by the command line
+  tool and the MCP server: the six levels and their numeric severities of
+  Python's `logging` (trace 5, debug 10, info 20, warning 30, error 40,
+  critical 50), one logger (facility) per concern (`cli`, `catalog`, `engine`,
+  `units`, `check`, `repl`, `mcp.server`), traces on stderr — never on stdout,
+  which carries the result — plus an optional file (`--log-file`) and a JSON
+  format (`--log-format=json`).  The level comes from `--log-level`, then
+  `--verbose` (debug), then `--quiet` (error), then the environment
+  (`CONVERTALL_LOG_LEVEL`, `CVT_LOG_LEVEL`), then `warning`; an unknown level
+  is reported without being fatal.
+- Every module logs where it matters: the parsed options and the answer
+  (`cli`), the catalogue with its unit count and SHA-256 (`catalog`), each
+  request, its reduced expressions, its factor and its result, exact fraction
+  included (`engine`), the expression analysis and the non-linear equations
+  (`units`), the validation of every unit (`check`), the interactive exchanges
+  (`repl`), the protocol exchanges (`mcp.server`).  A refused conversion is a
+  warning, an unreadable catalogue an error, an unexpected failure a critical.
+- The catalogue validation, the interactive mode and the data file lookup live
+  in their own modules (`lib/cli/catalog_check.dart`, `lib/cli/repl.dart`,
+  `lib/cli/database_locator.dart`), and the argument notation in
+  `lib/cli/options.dart`, so the parser, the usage messages and the options are
+  described in one place.
+- `--version`, `--help` and `doctor` read no catalogue and write no file;
+  `--json` output has no side effect either, which makes them usable
+  everywhere, including where the unit data is not installed.
+
+### Packaging:
+- New pure Dart dependency `rational` (Apache-2.0, `BigInt` based) for the
+  exact arithmetic; `args`, `decimal` and `eval_ex` are unchanged.
+- [docs/CLI.md](docs/CLI.md) rewritten as version 2.0: the argument notation,
+  the commands, the JSON schema, the logging levels and the exact arithmetic.
+  [docs/MCP.md](docs/MCP.md) follows the new options, the exact fields and the
+  shared logging system.
+
+### Tests:
+- New `test/core/exact_math_test.dart` (rational arithmetic, half to even
+  rounding, the four notations against Python's own output),
+  `test/core/sha256_test.dart` (FIPS 180-4 vectors, including the catalogue
+  digest), `test/core/logging_test.dart` (levels, filtering, level resolution,
+  text and JSON formats) and `test/cli/cli_test.dart` (the command line end to
+  end, with in-memory streams: the Python notation, exit statuses 0/1/2/3,
+  JSON, logs, interactive mode).
+- `test/core/conversion_engine_test.dart`, `test/core/parity_test.dart` and
+  `test/mcp/mcp_server_test.dart` follow the exact contracts, including the
+  `value_exact`, `as_fraction` and `python_compat` members.
+
+---
+## October 14, 2026 - Release 1.0.5
+
+### Updates:
+- New command line tool, `bin/convertall.dart`: `convert` (a value between
+  two units, with compound expressions such as `km/hr` or `kg*m/s^2`), `units`
+  (search the database by name or quantity), `types`, `info` (describe one
+  unit), `compatible` (what a unit can be converted with) and `version`.
+  `--json` returns machine readable results, `--details` explains a
+  conversion, `--notation` and `--decimals` control the display, and the exit
+  status tells a usage error (1) from a refused conversion (2) or unreadable
+  data (3).
+- New Model Context Protocol server, `bin/convertall_mcp.dart` or
+  `convertall mcp`, so that an AI assistant can use the unit database.  It
+  implements revision 2026-07-28 (per request metadata, `server/discover`,
+  `resultType`, caching hints) and also answers the older `initialize`
+  handshake, and it exposes five read-only tools: `convert_value`,
+  `list_unit_types`, `search_units`, `get_unit_info` and
+  `find_compatible_units`, each with an input and an output schema, a readable
+  explanation of a refusal and suggestions for a misspelled unit.
+- The conversion engine is now also available as pure Dart in `lib/core/`
+  (unit database, expression parser, conversion engine), with no Flutter
+  dependency, so the command line tool and the server run with the Dart SDK
+  alone.  It reads the same `assets/units.json` as the graphical application,
+  and `test/core/parity_test.dart` compares both implementations unit by unit
+  and conversion by conversion.
+- The command line tool and the MCP server share their implementation: a
+  command calls the very same tool handler as the server, so both always
+  answer the same thing.
+- New error codes for the command line and the server (`unknown_unit`,
+  `incompatible_units`, `non_linear_unit`, `malformed_value`,
+  `invalid_unit_expression`, `out_of_range`, `circular_definition`), plus
+  close match suggestions for a misspelled unit name.
+- New tests: `test/core/conversion_engine_test.dart` (reference values,
+  non-linear units, notations, refusals), `test/core/parity_test.dart` (the
+  core against the model of the graphical application) and
+  `test/mcp/mcp_server_test.dart` (both protocol eras, the five tools,
+  argument validation, error codes).
+- Documentation: [docs/MCP.md](docs/MCP.md) for the protocol, the tools and
+  the client configuration, [docs/CLI.md](docs/CLI.md) for the command line
+  reference.
+
+### Packaging:
+- New pure Dart dependency `args` for the command line option parsing; the
+  command line tool and the server reuse `decimal` and `eval_ex`, which were
+  already there, and import no Flutter package.
+- `dart compile exe bin/convertall.dart -o convertall` and
+  `dart compile exe bin/convertall_mcp.dart -o convertall-mcp` build standalone
+  binaries; they need `assets/units.json` next to them, or a `--units-file`
+  option, and need no Dart SDK at run time.  The Flutter bundles are unchanged.
 
 ---
 ## October 11, 2026 - Release 1.0.4
