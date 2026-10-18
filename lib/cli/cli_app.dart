@@ -163,7 +163,13 @@ Future<int> runConvertAllCli(
     if (options.flag('runtime-info')) {
       final context = _openCatalogue(options, errors);
       if (context == null) return CliStatus.catalog;
-      return _doctorCommand(context, options, output, errors);
+      return _doctorCommand(
+        context,
+        options,
+        output,
+        errors,
+        forceJson: true,
+      );
     }
     final database = _loadCatalogue(options, errors);
     if (database == null) return CliStatus.catalog;
@@ -650,8 +656,9 @@ int _doctorCommand(
   _Catalogue catalogue,
   CliOptions options,
   IOSink output,
-  IOSink errors,
-) {
+  IOSink errors, {
+  bool forceJson = false,
+}) {
   final database = catalogue.database;
   final versions = [modernProtocolVersion, ...legacyProtocolVersions];
   // `doctor` reports the display settings, so they are checked here too: an
@@ -683,7 +690,7 @@ int _doctorCommand(
     'website': convertAllWebsite,
   };
   catalogue.addProvenance(info);
-  if (options.flag('json')) {
+  if (forceJson || options.flag('json')) {
     output.writeln(json.encode(info));
     return CliStatus.ok;
   }

@@ -467,7 +467,7 @@ void main() {
       final result = engine.convert(value: '1', from: 'mile', to: 'km');
       expect(result.factor!.toDouble(), 1.609344);
       expect(result.toJson()['factor'], 1.609344);
-      expect(result.toJson()['factor_exact'], '1.609344');
+      expect(result.toJson()['factor_exact'], '25146/15625');
       expect(
         engine.convert(value: '1', from: 'C', to: 'F').factor,
         isNull,

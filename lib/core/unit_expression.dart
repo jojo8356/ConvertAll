@@ -20,6 +20,7 @@
 // they drift apart.
 
 import 'dart:convert' show json;
+import 'dart:math' as math;
 
 import 'package:decimal/decimal.dart';
 import 'package:eval_ex/expression.dart';
@@ -335,35 +336,59 @@ class UnitGroup implements UnitItem {
   /// when both groups are linear (`1 in` -> `2.54 cm`); it is a float as soon
   /// as an equation or an interpolation table is used (`0 C` -> `273.15 K`),
   /// because those are defined in floating point by the specification.
-  Number convert(Number value, UnitGroup toGroup) {
+  Number convert(
+    Number value,
+    UnitGroup toGroup, {
+    bool useBinaryFloatEquations = false,
+  }) {
     var result = value;
     if (isLinear) {
       result *= factor;
     } else {
-      result = _nonLinearCalc(result, true) * factor;
+      result = _nonLinearCalc(
+            result,
+            true,
+            useBinaryFloat: useBinaryFloatEquations,
+          ) *
+          factor;
     }
     if (toGroup.isLinear) {
       result /= toGroup.factor;
     } else {
-      result = toGroup._nonLinearCalc(result / toGroup.factor, false);
+      result = toGroup._nonLinearCalc(
+        result / toGroup.factor,
+        false,
+        useBinaryFloat: useBinaryFloatEquations,
+      );
     }
     return result;
   }
 
   /// Apply the equation of a non-linear unit, or interpolate its table.
-  Number _nonLinearCalc(Number value, bool isFrom) {
+  Number _nonLinearCalc(
+    Number value,
+    bool isFrom, {
+    bool useBinaryFloat = false,
+  }) {
     final unit = flatUnits.first.unitMatch!;
     final number = value.toDouble();
     double? result;
     if (unit.toEqn.isNotEmpty) {
-      // Regular equations, e.g. Celsius: "x + 273.15".  They run in double
-      // precision, as the specification requires (§3.4): the equations are
-      // written for `f64` and must give the same answer as the other
-      // implementations.
+      // Regular equations, e.g. Celsius: "x + 273.15". The normal engine
+      // lets eval_ex retain decimal literals; compatibility mode deliberately
+      // follows the historical Python binary floating-point operations.
       try {
-        final expr = Expression(isFrom ? unit.fromEqn : unit.toEqn);
-        expr.setDecimalVariable('x', Decimal.parse(number.toString()));
-        result = expr.eval()?.toDouble();
+        final equation = isFrom ? unit.fromEqn : unit.toEqn;
+        if (useBinaryFloat) {
+          // Compatibility mode follows Python's binary floating-point
+          // arithmetic operation for operation.  eval_ex evaluates Decimal
+          // values, which intentionally removes residues such as 32 F -> C.
+          result = _DoubleExpressionParser(equation, number).parse();
+        } else {
+          final expr = Expression(equation);
+          expr.setDecimalVariable('x', Decimal.parse(number.toString()));
+          result = expr.eval()?.toDouble();
+        }
       } on ExpressionException {
         result = null;
       } on FormatException {
@@ -377,10 +402,10 @@ class UnitGroup implements UnitItem {
       // Interpolation between the points of a table, e.g. gas mark.
       result = _interpolate(unit, number, isFrom);
     }
-    if (result == null) {
+    if (result == null || !result.isFinite) {
       throw UnitConversionException(
-        'Invalid equation for unit "${unit.name}".',
-        UnitErrorCode.invalidUnitExpression,
+        'The value $number is outside the range supported by "${unit.name}".',
+        UnitErrorCode.outOfRange,
       );
     }
     return Number.approximate(result);
@@ -443,6 +468,175 @@ class UnitGroup implements UnitItem {
     }
     return (value - lower[0]) / span * (upper[1] - lower[1]) + lower[1];
   }
+}
+
+/// Binary floating-point evaluator for the equations in `units.json`.
+///
+/// The regular engine deliberately uses Decimal through eval_ex.  Python
+/// compatibility mode needs IEEE-754 operations instead, including their tiny
+/// residues, so this parser supports the equation vocabulary used by the data:
+/// arithmetic, powers, `x`, `PI`, `e`, `LOG` and `SQRT`.
+class _DoubleExpressionParser {
+  _DoubleExpressionParser(this.text, this.x);
+
+  final String text;
+  final double x;
+  int position = 0;
+
+  double parse() {
+    final value = _expression();
+    _spaces();
+    if (position != text.length) {
+      throw FormatException('Unexpected "${text[position]}" in equation');
+    }
+    return value;
+  }
+
+  double _expression() {
+    var value = _term();
+    while (true) {
+      _spaces();
+      if (_accept('+')) {
+        value += _term();
+      } else if (_accept('-')) {
+        value -= _term();
+      } else {
+        return value;
+      }
+    }
+  }
+
+  double _term() {
+    var value = _unary();
+    while (true) {
+      _spaces();
+      if (_accept('*')) {
+        value *= _unary();
+      } else if (_accept('/')) {
+        value /= _unary();
+      } else {
+        return value;
+      }
+    }
+  }
+
+  double _unary() {
+    _spaces();
+    if (_accept('+')) return _unary();
+    if (_accept('-')) return -_unary();
+    return _power();
+  }
+
+  double _power() {
+    final base = _primary();
+    _spaces();
+    if (!_accept('^')) return base;
+    return math.pow(base, _unary()).toDouble();
+  }
+
+  double _primary() {
+    _spaces();
+    if (_accept('(')) {
+      final value = _expression();
+      _spaces();
+      if (!_accept(')')) throw const FormatException('Missing ")" in equation');
+      return value;
+    }
+    if (position < text.length && _isIdentifierStart(text[position])) {
+      final name = _identifier();
+      if (name == 'X') return x;
+      if (name == 'PI') return math.pi;
+      if (name == 'E') return math.e;
+      _spaces();
+      if (!_accept('(')) {
+        throw FormatException('Unknown name "$name" in equation');
+      }
+      final argument = _expression();
+      _spaces();
+      if (!_accept(')')) {
+        throw FormatException('Missing ")" after $name in equation');
+      }
+      return switch (name) {
+        'LOG' => math.log(argument),
+        'SQRT' => math.sqrt(argument),
+        _ => throw FormatException('Unknown function "$name" in equation'),
+      };
+    }
+    return _number();
+  }
+
+  double _number() {
+    _spaces();
+    final start = position;
+    var seenDot = false;
+    while (position < text.length) {
+      final char = text[position];
+      if (_isDigit(char)) {
+        position += 1;
+      } else if (char == '.' && !seenDot) {
+        seenDot = true;
+        position += 1;
+      } else {
+        break;
+      }
+    }
+    if (position < text.length &&
+        (text[position] == 'e' || text[position] == 'E')) {
+      final exponentStart = position;
+      position += 1;
+      if (position < text.length &&
+          (text[position] == '+' || text[position] == '-')) {
+        position += 1;
+      }
+      final digitStart = position;
+      while (position < text.length && _isDigit(text[position])) {
+        position += 1;
+      }
+      if (digitStart == position) position = exponentStart;
+    }
+    if (start == position) {
+      throw FormatException('A number was expected at offset $start');
+    }
+    final value = double.tryParse(text.substring(start, position));
+    if (value == null) throw const FormatException('Invalid number in equation');
+    return value;
+  }
+
+  String _identifier() {
+    final start = position;
+    while (position < text.length && _isIdentifierPart(text[position])) {
+      position += 1;
+    }
+    return text.substring(start, position).toUpperCase();
+  }
+
+  bool _accept(String token) {
+    if (!text.startsWith(token, position)) return false;
+    position += token.length;
+    return true;
+  }
+
+  void _spaces() {
+    while (position < text.length &&
+        (text[position] == ' ' || text[position] == '\t')) {
+      position += 1;
+    }
+  }
+
+  static bool _isDigit(String char) {
+    final code = char.codeUnitAt(0);
+    return code >= 0x30 && code <= 0x39;
+  }
+
+  static bool _isIdentifierStart(String char) {
+    final code = char.codeUnitAt(0);
+    return (code >= 0x41 && code <= 0x5a) ||
+        (code >= 0x61 && code <= 0x7a) ||
+        char == '_';
+  }
+
+  static bool _isIdentifierPart(String char) =>
+      _isIdentifierStart(char) || _isDigit(char);
 }
 
 /// A single unit with its exponent (`cm`, `s^-1`, `m^2`).

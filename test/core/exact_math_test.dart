@@ -96,14 +96,16 @@ void main() {
       expect(ExactMath.toScientific(ExactMath.evaluate('2.5e-9'), 2), '2.50E-09');
       expect(ExactMath.toScientific(ExactMath.evaluate('1/3'), 3), '3.333E-01');
       // A carry moves to the next exponent: 9.99 rounds to 10.0E+00.
-      expect(ExactMath.toScientific(ExactMath.evaluate('9.999'), 2), '1.000E+01');
+      expect(ExactMath.toScientific(ExactMath.evaluate('9.999'), 2), '1.00E+01');
     });
 
     test('writes the engineering notation of the Python tool', () {
       expect(ExactMath.toEngineering(ExactMath.evaluate('1000'), 2), '1.00E+03');
       expect(ExactMath.toEngineering(ExactMath.evaluate('0.0254'), 2), '25.40E-03');
       expect(ExactMath.toEngineering(ExactMath.evaluate('1e-9'), 2), '1.00E-09');
-      expect(ExactMath.toEngineering(ExactMath.evaluate('12345'), 2), '12.35E+03');
+      // Exact half-to-even rounding: 12.345 goes to 12.34, not the binary
+      // floating-point approximation above the halfway point.
+      expect(ExactMath.toEngineering(ExactMath.evaluate('12345'), 2), '12.34E+03');
       expect(ExactMath.toEngineering(ExactMath.evaluate('0.5'), 2), '500.00E-03');
       expect(ExactMath.toEngineering(ExactMath.evaluate('0'), 2), '0.00E+00');
       expect(ExactMath.toEngineering(ExactMath.evaluate('-2500'), 2), '-2.50E+03');
@@ -160,7 +162,7 @@ void main() {
       final inch = Number.exact(Rational.fromInt(127, 50));
       final metre = Number.exact(Rational.fromInt(1, 100));
       expect((inch / metre).isExact, isTrue);
-      expect((inch / metre).asFractionText, '127/50');
+      expect((inch / metre).asFractionText, '254');
       expect((inch * Number.exact(Rational.fromInt(3))).asFractionText, '381/50');
       expect(Number.exact(Rational.fromInt(2, 3)).pow(2).asFractionText, '4/9');
       // A fractional exponent cannot stay exact.

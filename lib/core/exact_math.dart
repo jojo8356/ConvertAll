@@ -355,9 +355,9 @@ class _ExpressionParser {
     }
   }
 
-  bool accept(String character) {
-    if (position < text.length && text[position] == character) {
-      position += 1;
+  bool accept(String token) {
+    if (text.startsWith(token, position)) {
+      position += token.length;
       return true;
     }
     return false;

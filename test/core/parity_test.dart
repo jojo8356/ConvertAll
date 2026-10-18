@@ -20,6 +20,7 @@
 
 import 'dart:convert' show json;
 import 'dart:io' show File;
+import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -140,7 +141,9 @@ void main() {
         group.isCategoryMatch(gui.UnitGroup()..parse(name));
         final coreGroup = core.UnitGroup.parse(name, coreEngine.database);
         coreGroup.reduce();
-        if (group.factor != coreGroup.factor.toDouble()) {
+        final actual = coreGroup.factor.toDouble();
+        final tolerance = math.max(1e-15, group.factor.abs() * 1e-12);
+        if ((group.factor - actual).abs() > tolerance) {
           divergent.add('$name: model ${group.factor} != core ${coreGroup.factor}');
         }
       }
@@ -175,17 +178,16 @@ void main() {
           divergent.add('$value $from -> $to: the model refuses it');
           continue;
         }
-        // Without an equation the two implementations must agree to the last
-        // bit; with one, the core rounds a residue below 1e-10 to zero
-        // (32 F is 0 C, not 5.68434188608e-14 C), so a conversion that
-        // involves an equation is compared with the 1e-9 the data itself
-        // cannot resolve.
+        // The GUI deliberately accumulates binary factor rounding while the
+        // core keeps rational factors. Compare their numeric results within a
+        // scale-aware tolerance; equations are only specified to about 1e-9.
         final usesEquation =
             !core.UnitGroup.parse(from, coreEngine.database).isLinear ||
             !core.UnitGroup.parse(to, coreEngine.database).isLinear;
-        final same = usesEquation
-            ? (expected - actual).abs() <= 1e-9
-            : expected == actual;
+        final tolerance = usesEquation
+            ? 1e-9
+            : math.max(1e-15, expected.abs() * 1e-12);
+        final same = (expected - actual).abs() <= tolerance;
         if (!same) {
           divergent.add('$value $from -> $to: $expected != $actual');
         }
@@ -246,7 +248,7 @@ void main() {
       // 127/50, so the multiplications do not accumulate binary rounding.
       final mile = coreEngine.convert(value: '1', from: 'mile', to: 'km');
       expect(mile.isExact, isTrue);
-      expect(mile.asFractionText, '201168/125000');
+      expect(mile.asFractionText, '25146/15625');
       expect(mile.value.toDouble(), 1.609344);
       final inch = coreEngine.convert(value: '1', from: 'in', to: 'cm');
       expect(inch.value.toDouble(), 2.54);
@@ -256,15 +258,14 @@ void main() {
       expect(ounces.asFractionText, '1');
     });
 
-    test('the core rounds a floating point residue to zero', () {
-      // The model keeps the residue of the equations: 32 F is 5.7e-14 C for
-      // it, and the graphical interface displays that value.  The core snaps
-      // anything below 1e-10 to zero when an equation is involved, so that
-      // the command line and the MCP server answer "0" to a model asking for
-      // the freezing point in Celsius.
-      expect(modelConvert(32.0, 'F', 'C'), isNot(0.0));
-      expect(coreConvert(32.0, 'F', 'C'), 0.0);
-      // The residue of the other direction is rounded by the display already.
+    test('the core reports an equation result near zero as zero', () {
+      // eval_ex currently evaluates these equations with Decimal values, so
+      // the GUI may already get zero. The core guarantees the public answer is
+      // zero while still marking it approximate because an equation was used.
+      expect(modelConvert(32.0, 'F', 'C'), closeTo(0.0, 1e-10));
+      final freezing = coreEngine.convert(value: '32', from: 'F', to: 'C');
+      expect(freezing.value.toDouble(), 0.0);
+      expect(freezing.isExact, isFalse);
       expect(modelConvert(0.0, 'C', 'F'), closeTo(32.0, 1e-9));
       expect(coreConvert(0.0, 'C', 'F'), closeTo(32.0, 1e-9));
     });

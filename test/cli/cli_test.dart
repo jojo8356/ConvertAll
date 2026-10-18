@@ -162,7 +162,15 @@ void main() {
     });
 
     test('shows the details with -x', () async {
-      final result = await run(['-q', '-x', '1', 'mile', 'km']);
+      final result = await run([
+        '--language',
+        'en',
+        '-q',
+        '-x',
+        '1',
+        'mile',
+        'km',
+      ]);
       expect(result.status, 0, reason: result.err);
       expect(result.lines.first, '1 mile = 1.609344 km');
       expect(result.out, contains('Base units: mile = m; km = m'));
@@ -325,10 +333,11 @@ void main() {
       expect(result.out, contains('mph'));
     });
 
-    test('a refused list is reported with status 1', () async {
+    test('an unknown type returns an empty successful list', () async {
       final result = await run(['units', '--type', 'nonsense']);
-      expect(result.status, 1);
-      expect(result.err, isNotEmpty);
+      expect(result.status, 0);
+      expect(result.err, isEmpty);
+      expect(result.out.trim(), 'No unit to show.');
     });
   });
 

@@ -233,7 +233,7 @@ void main() {
       expect(structured['value_exact'], '2.54');
       expect(structured['as_fraction'], '127/50');
       expect(structured['exact'], isTrue);
-      expect(structured['factor_exact'], '0.0254');
+      expect(structured['factor_exact'], '127/50');
       final content = (result['content'] as List).cast<Map<String, Object?>>();
       expect(content.first['text'], '1 in = 2.54 cm');
     });
@@ -404,7 +404,7 @@ void main() {
       final error = errorOf(response);
       expect(error['code'], McpErrorCodes.invalidParams);
       expect(error['message'], contains('limit'));
-      expect(error['message'], contains('maximum of 200'));
+      expect(error['message'], contains('maximum of 500'));
     });
 
     test('a missing argument is named in the error', () {

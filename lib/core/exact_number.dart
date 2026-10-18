@@ -172,10 +172,10 @@ final class FloatNumber extends Number {
   bool get isFinite => value.isFinite;
 
   @override
-  Rational? get asRational => ExactMath.fromDouble(value);
+  Rational? get asRational => null;
 
   @override
-  String? get asFractionText => asRational?.toString();
+  String? get asFractionText => null;
 
   @override
   double toDouble() => value;
@@ -238,7 +238,7 @@ String formatNumber(
   bool pythonCompat = false,
 }) {
   if (!value.isFinite) return value.toDouble().toString();
-  var rational = value.asRational;
+  var rational = value.asRational ?? ExactMath.fromDouble(value.toDouble());
   if (rational == null) return value.toDouble().toString();
   if (pythonCompat) {
     // The historical implementation computes every factor as a double: this

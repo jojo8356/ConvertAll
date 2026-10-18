@@ -130,7 +130,7 @@ class UnitConversionResult {
       // linear units: with --python-compat, or when an equation is involved,
       // `factor` is a float and there is nothing exact to report.
       if (factor != null && factor!.isExact) {
-        json['factor_exact'] = ExactMath.toExactText(factor!.asRational!);
+        json['factor_exact'] = factor!.asFractionText;
       }
       json['from_category'] = fromCategory;
       json['to_category'] = toCategory;
@@ -169,8 +169,7 @@ class UnitDetails {
       'type_display': unit.displayType,
       'equivalent': unit.equiv,
       'factor': factor.toDouble(),
-      if (factor.isExact)
-        'factor_exact': ExactMath.toExactText(factor.asRational!),
+      if (factor.isExact) 'factor_exact': factor.asFractionText,
       'base_units': reduced,
       'non_linear': unit.isNonLinear,
       'base_unit': unit.isBaseUnit,
@@ -403,6 +402,11 @@ class ConversionEngine {
     }
     if (types.length == 1) return types.first;
     if (atoms.length == 1) return atoms.first.unitMatch!.displayType;
+    final compatibleTypes =
+        (_categories[group.reducedText] ?? const <UnitRecord>[])
+        .map((unit) => unit.displayType)
+        .toSet();
+    if (compatibleTypes.length == 1) return compatibleTypes.first;
     return group.reducedText;
   }
 
@@ -446,7 +450,11 @@ class ConversionEngine {
       fromGroup.factor = Number.approximate(fromGroup.factor.toDouble());
       toGroup.factor = Number.approximate(toGroup.factor.toDouble());
     }
-    var result = fromGroup.convert(number, toGroup);
+    var result = fromGroup.convert(
+      number,
+      toGroup,
+      useBinaryFloatEquations: compat,
+    );
     final isLinear = fromGroup.isLinear && toGroup.isLinear;
     _log.debug(
       '${fromGroup.reducedText.isEmpty ? fromText : fromGroup.reducedText} '
@@ -468,7 +476,9 @@ class ConversionEngine {
         'the residue ${result.toDouble()} of a non-linear conversion is '
         'rounded to zero',
       );
-      result = Number.zero;
+      // Keep the provenance: zero came through a floating-point equation and
+      // must not acquire an exact fraction merely because its display snaps.
+      result = Number.approximate(0.0);
     }
     // An overflow (a table index out of range, a huge power) must be a refused
     // conversion and not a printed "Infinity", as in the Python tool.
