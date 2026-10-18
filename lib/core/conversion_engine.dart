@@ -402,11 +402,6 @@ class ConversionEngine {
     }
     if (types.length == 1) return types.first;
     if (atoms.length == 1) return atoms.first.unitMatch!.displayType;
-    final compatibleTypes =
-        (_categories[group.reducedText] ?? const <UnitRecord>[])
-        .map((unit) => unit.displayType)
-        .toSet();
-    if (compatibleTypes.length == 1) return compatibleTypes.first;
     return group.reducedText;
   }
 

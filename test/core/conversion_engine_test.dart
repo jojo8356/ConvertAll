@@ -138,7 +138,7 @@ void main() {
       expect(result.formatted, '27.777778');
       expect(result.fromReduced, 'm / s');
       expect(result.toReduced, 'm / s');
-      expect(result.fromCategory, 'velocity');
+      expect(result.fromCategory, 'm / s');
     });
 
     test('accepts abbreviations, plurals and squares', () {

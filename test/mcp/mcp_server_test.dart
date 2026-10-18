@@ -235,7 +235,10 @@ void main() {
       expect(structured['exact'], isTrue);
       expect(structured['factor_exact'], '127/50');
       final content = (result['content'] as List).cast<Map<String, Object?>>();
-      expect(content.first['text'], '1 in = 2.54 cm');
+      final text = content.first['text'] as String;
+      expect(text, startsWith('1 in = 2.54 cm'));
+      expect(text, contains('Multiplier: 1 in = 2.54 cm'));
+      expect(text, contains('Quantity: length -> length'));
     });
 
     test('a non-linear conversion is not claimed exact', () {
