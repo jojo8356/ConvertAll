@@ -2,6 +2,9 @@
 ## October 14, 2026 - Release 1.0.6
 
 ### Updates:
+- The unit table is now responsive: its comment column grows with the window,
+  wraps text in narrow layouts, and gives each row the height required to show
+  the full comment, including when accessibility text scaling is enabled.
 - The command line tool now follows the argument notation of the reference
   Python tool (the `ConvertAll-py` repository: `source/cmdline.py` and its
   `doc/CLI_RUST_CAHIER_DES_CHARGES.md` specification).  Same short and long

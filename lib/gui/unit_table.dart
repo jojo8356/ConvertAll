@@ -3,6 +3,8 @@
 // Copyright (c) 2026, Douglas W. Bell.
 // Free software, GPL v2 or later.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../model/theme_model.dart';
@@ -11,13 +13,78 @@ import '../model/unit_data.dart';
 import 'common_widgets.dart';
 import '../l10n/l10n.dart';
 
-/// Total width of the table, kept in sync with the frame view.
+/// Preferred table dimensions at the application's normal window size.
 const tableWidth = 750.0;
+const minimumTableWidth = 432.0;
 const nameColWidth = 272.0;
 const typeColWidth = 150.0;
 const commentColWidth = 296.0;
+const tableTrailingPadding = 20.0;
+const cellRightPadding = 12.0;
+const cellVerticalPadding = 5.0;
 
-/// Height of the sticky header and of every row.
+/// Responsive widths shared by the header and every data row.
+///
+/// At 750 logical pixels this preserves the historical 272/150/296 layout.
+/// Extra room primarily benefits comments, while a narrow window retains
+/// usable minimums for all three columns.
+@immutable
+class UnitTableLayout {
+  final double width;
+  final double nameWidth;
+  final double typeWidth;
+  final double commentWidth;
+
+  const UnitTableLayout._(
+    this.width,
+    this.nameWidth,
+    this.typeWidth,
+    this.commentWidth,
+  );
+
+  factory UnitTableLayout.forWidth(double availableWidth) {
+    final width = availableWidth.isFinite
+        ? math.max(minimumTableWidth, availableWidth)
+        : tableWidth;
+    final columnSpace =
+        width - markerWidth - markerGap - tableTrailingPadding;
+    const minimumName = 160.0;
+    const minimumType = 100.0;
+    const minimumComment = 140.0;
+    final extra = math.max(0.0, columnSpace - 400.0);
+    return UnitTableLayout._(
+      width,
+      minimumName + extra * (112.0 / 318.0),
+      minimumType + extra * (50.0 / 318.0),
+      minimumComment + extra * (156.0 / 318.0),
+    );
+  }
+}
+
+/// Height needed to display [comment] completely at [width].
+///
+/// This is public so widget tests can verify that accessibility text scaling
+/// and narrow windows never silently clip a comment.
+double unitTableCommentRowHeight(
+  String comment, {
+  required double width,
+  required TextStyle style,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+}) {
+  if (comment.isEmpty) return lineHeight;
+  final painter = TextPainter(
+    text: TextSpan(text: comment, style: style),
+    textScaler: textScaler,
+    textDirection: textDirection,
+  )..layout(maxWidth: math.max(1.0, width - cellRightPadding));
+  return math.max(
+    lineHeight,
+    (painter.height + cellVerticalPadding * 2).ceilToDouble(),
+  );
+}
+
+/// Height of the sticky header and minimum height of a data row.
 const headerHeight = 40.0;
 const lineHeight = 30.0;
 
@@ -37,91 +104,135 @@ class _UnitTableState extends State<UnitTable> {
   final _horziScrollCtrl = ScrollController();
 
   @override
+  void dispose() {
+    _vertScrollCtrl.dispose();
+    _horziScrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Consumer<UnitController>(
-      builder: (context, model, child) {
-        final unitList = model.currentPartialMatches();
-        if (_vertScrollCtrl.hasClients) {
-          final viewHeight =
-              _vertScrollCtrl.position.viewportDimension - headerHeight;
-          model.tableRowHeight = (viewHeight / lineHeight).floor();
-          final visibleUnit =
-              model.highlightedTableUnit ?? model.currentUnit?.unitMatch;
-          if (visibleUnit != null) {
-            final pos = unitList.indexOf(visibleUnit) * lineHeight;
-            if (pos >= 0 && pos < _vertScrollCtrl.offset) {
-              // Need to scroll up.
-              _vertScrollCtrl.jumpTo(pos);
-            } else if (pos > _vertScrollCtrl.offset + viewHeight - lineHeight) {
-              // Need to scroll down.
-              _vertScrollCtrl.jumpTo(pos - viewHeight + lineHeight);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = UnitTableLayout.forWidth(constraints.maxWidth);
+        return Consumer<UnitController>(
+          builder: (context, model, child) {
+            final unitList = model.currentPartialMatches();
+            if (unitList.isEmpty) {
+              return SizedBox(
+                width: layout.width,
+                height: 170.0,
+                child: _emptyState(context, model),
+              );
             }
-          }
-        }
-        if (unitList.isEmpty) {
-          return SizedBox(
-            width: tableWidth,
-            height: 170.0,
-            child: _emptyState(context, model),
-          );
-        }
-        // Align and set the max height to get the horizontal scrollbar near
-        // the table when there aren't many entries.
-        return Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: headerHeight + lineHeight,
-              maxHeight:
-                  headerHeight +
-                  lineHeight *
-                      (unitList.isNotEmpty ? unitList.length + 0.3 : 1),
-            ),
-            child: Scrollbar(
-              controller: _horziScrollCtrl,
-              thumbVisibility: true,
-              trackVisibility: true,
-              child: Scrollbar(
-                controller: _vertScrollCtrl,
-                thumbVisibility: true,
-                trackVisibility: true,
-                notificationPredicate: (notif) => notif.depth == 1,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
+
+            // Measure with the bold variant too: selection must never make the
+            // last word move into a line that the row did not reserve.
+            final rowStyle = (Theme.of(context).textTheme.bodyMedium ??
+                    const TextStyle(fontSize: 14.0))
+                .copyWith(fontWeight: FontWeight.w600);
+            final textScaler = MediaQuery.textScalerOf(context);
+            final textDirection = Directionality.of(context);
+            final rowHeights = <double>[];
+            final rowOffsets = <double>[0.0];
+            for (final unit in unitList) {
+              final height = unitTableCommentRowHeight(
+                unit.comment,
+                width: layout.commentWidth,
+                style: rowStyle,
+                textScaler: textScaler,
+                textDirection: textDirection,
+              );
+              rowHeights.add(height);
+              rowOffsets.add(rowOffsets.last + height);
+            }
+
+            if (_vertScrollCtrl.hasClients) {
+              final viewHeight = math.max(
+                lineHeight,
+                _vertScrollCtrl.position.viewportDimension - headerHeight,
+              );
+              final averageHeight = rowOffsets.last / unitList.length;
+              model.tableRowHeight = math.max(
+                1,
+                (viewHeight / averageHeight).floor(),
+              );
+              final visibleUnit =
+                  model.highlightedTableUnit ?? model.currentUnit?.unitMatch;
+              final index = visibleUnit == null
+                  ? -1
+                  : unitList.indexOf(visibleUnit);
+              if (index >= 0) {
+                final top = rowOffsets[index];
+                final bottom = rowOffsets[index + 1];
+                if (top < _vertScrollCtrl.offset) {
+                  _vertScrollCtrl.jumpTo(top);
+                } else if (bottom > _vertScrollCtrl.offset + viewHeight) {
+                  _vertScrollCtrl.jumpTo(bottom - viewHeight);
+                }
+              }
+            }
+
+            // Align and keep the horizontal scrollbar close to short lists.
+            return Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: headerHeight + lineHeight,
+                  maxHeight: headerHeight + rowOffsets.last + lineHeight * 0.3,
+                ),
+                child: Scrollbar(
                   controller: _horziScrollCtrl,
-                  child: SizedBox(
-                    width: tableWidth,
-                    child: CustomScrollView(
-                      controller: _vertScrollCtrl,
-                      slivers: <Widget>[
-                        SliverPersistentHeader(
-                          pinned: true,
-                          floating: false,
-                          delegate: _UnitTableHeader(),
-                        ),
-                        SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            childCount: unitList.length,
-                            (BuildContext context, int index) {
-                              final unit = unitList[index];
-                              return _UnitRow(
-                                unit: unit,
-                                isSelected: unit == model.currentUnit?.unitMatch,
-                                isActive: unit == model.highlightedTableUnit,
-                                onTap: () {
-                                  model.replaceCurrentUnit(unit);
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  child: Scrollbar(
+                    controller: _vertScrollCtrl,
+                    thumbVisibility: true,
+                    trackVisibility: true,
+                    notificationPredicate: (notif) => notif.depth == 1,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      controller: _horziScrollCtrl,
+                      child: SizedBox(
+                        width: layout.width,
+                        child: CustomScrollView(
+                          controller: _vertScrollCtrl,
+                          slivers: <Widget>[
+                            SliverPersistentHeader(
+                              pinned: true,
+                              floating: false,
+                              delegate: _UnitTableHeader(layout),
+                            ),
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                childCount: unitList.length,
+                                (BuildContext context, int index) {
+                                  final unit = unitList[index];
+                                  return _UnitRow(
+                                    key: ValueKey('unit-row-${unit.name}'),
+                                    unit: unit,
+                                    layout: layout,
+                                    height: rowHeights[index],
+                                    isSelected:
+                                        unit == model.currentUnit?.unitMatch,
+                                    isActive:
+                                        unit == model.highlightedTableUnit,
+                                    onTap: () {
+                                      model.replaceCurrentUnit(unit);
+                                    },
+                                  );
                                 },
-                              );
-                            },
-                          ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -156,12 +267,16 @@ class _UnitTableState extends State<UnitTable> {
 /// One selectable row of the unit list.
 class _UnitRow extends StatefulWidget {
   final UnitDatum unit;
+  final UnitTableLayout layout;
+  final double height;
   final bool isSelected;
   final bool isActive;
   final VoidCallback onTap;
 
   const _UnitRow({
     required this.unit,
+    required this.layout,
+    required this.height,
     required this.isSelected,
     required this.isActive,
     required this.onTap,
@@ -212,7 +327,7 @@ class _UnitRowState extends State<_UnitRow> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          height: lineHeight,
+          height: widget.height,
           decoration: BoxDecoration(
             color: background,
             border: Border(bottom: BorderSide(color: colors.hairline)),
@@ -225,9 +340,17 @@ class _UnitRowState extends State<_UnitRow> {
                 color: widget.isSelected ? scheme.primary : Colors.transparent,
               ),
               const SizedBox(width: markerGap),
-              _cell(widget.unit.nameWithUnabbrev, nameColWidth, style),
-              _cell(widget.unit.type, typeColWidth, style),
-              _cell(widget.unit.comment, commentColWidth, style),
+              _cell(
+                widget.unit.nameWithUnabbrev,
+                widget.layout.nameWidth,
+                style,
+              ),
+              _cell(widget.unit.type, widget.layout.typeWidth, style),
+              _commentCell(
+                widget.unit.comment,
+                widget.layout.commentWidth,
+                style,
+              ),
             ],
           ),
         ),
@@ -239,7 +362,7 @@ class _UnitRowState extends State<_UnitRow> {
     return SizedBox(
       width: width,
       child: Padding(
-        padding: const EdgeInsets.only(right: 12.0),
+        padding: const EdgeInsets.only(right: cellRightPadding),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
@@ -252,10 +375,37 @@ class _UnitRowState extends State<_UnitRow> {
       ),
     );
   }
+
+  Widget _commentCell(String text, double width, TextStyle? style) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          right: cellRightPadding,
+          top: cellVerticalPadding,
+          bottom: cellVerticalPadding,
+        ),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            text,
+            key: ValueKey('unit-comment-${widget.unit.name}'),
+            style: style,
+            softWrap: true,
+            overflow: TextOverflow.visible,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Sticky header with the three sortable columns.
 class _UnitTableHeader extends SliverPersistentHeaderDelegate {
+  final UnitTableLayout layout;
+
+  const _UnitTableHeader(this.layout);
+
   @override
   double get maxExtent => headerHeight;
 
@@ -287,21 +437,21 @@ class _UnitTableHeader extends SliverPersistentHeaderDelegate {
                 model,
                 SortField.byName,
                 context.l10n.columnUnitName,
-                nameColWidth,
+                layout.nameWidth,
               ),
               _headerCell(
                 context,
                 model,
                 SortField.byType,
                 context.l10n.columnUnitType,
-                typeColWidth,
+                layout.typeWidth,
               ),
               _headerCell(
                 context,
                 model,
                 SortField.byComment,
                 context.l10n.columnComments,
-                commentColWidth,
+                layout.commentWidth,
               ),
             ],
           ),
@@ -335,7 +485,7 @@ class _UnitTableHeader extends SliverPersistentHeaderDelegate {
           child: Tooltip(
             message: context.l10n.sortByTitle(title),
             child: Padding(
-              padding: const EdgeInsets.only(right: 12.0),
+              padding: const EdgeInsets.only(right: cellRightPadding),
               child: Row(
                 children: <Widget>[
                   Flexible(
