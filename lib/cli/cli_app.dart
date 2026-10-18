@@ -88,14 +88,17 @@ Future<int> runConvertAllCli(
   }
   final options = CliOptions(results);
   final command = results.command;
+  final commandName = command?.name;
 
   // `--help` and `--version` come first, for the whole line and for a command:
   // they must answer without reading the unit catalogue (the Python test suite
   // checks exactly that), and they are the only two options that do not go
   // through the logging configuration.
   if (options.flag('help')) {
-    if (command != null && command.name != 'help') {
-      output.writeln(commandUsage(command.name, parser.commands[command.name]!));
+    if (commandName != null && commandName != 'help') {
+      output.writeln(
+        commandUsage(commandName, parser.commands[commandName]!),
+      );
     } else if (command != null && command.rest.isNotEmpty) {
       final name = command.rest.first;
       final commandParser = parser.commands[name];
@@ -180,7 +183,7 @@ Future<int> runConvertAllCli(
         output: output,
       );
     }
-    switch (command?.name) {
+    switch (commandName) {
       case 'convert':
         return _convertCommand(frontEnd, command!.rest, options, output, errors);
       case 'units':
@@ -214,11 +217,11 @@ Future<int> runConvertAllCli(
       case 'help':
         final name = command!.rest.isEmpty ? null : command.rest.first;
         final commandParser = name == null ? null : parser.commands[name];
-        output.writeln(
-          commandParser == null
-              ? cliUsage(parser)
-              : commandUsage(name, commandParser),
-        );
+        if (name == null || commandParser == null) {
+          output.writeln(cliUsage(parser));
+        } else {
+          output.writeln(commandUsage(name, commandParser));
+        }
         return CliStatus.ok;
       case null:
         // No command: `-i` opens the interactive mode, anything else is the
@@ -410,15 +413,16 @@ int _convertCommand(
   }
   final detailed = options.flag('details');
   _cliLog.debug('converting $value from "${units[0]}" to "${units[1]}"');
-  final outcome = frontEnd.call('convert_value', {
+  final arguments = <String, Object?>{
     'value': value,
     'from': units[0],
     'to': units[1],
-    if (notation != null) 'notation': notationName(notation),
-    if (decimals != null) 'decimals': decimals,
     'python_compat': options.flag('python-compat'),
     'include_details': detailed || options.flag('json'),
-  });
+  };
+  if (notation != null) arguments['notation'] = notationName(notation);
+  if (decimals != null) arguments['decimals'] = decimals;
+  final outcome = frontEnd.call('convert_value', arguments);
   if (options.flag('json')) {
     return _writeJson(outcome, output, errors, engine: frontEnd.engine);
   }

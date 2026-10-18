@@ -45,7 +45,7 @@ void main() {
         ExactMath.evaluate('2.176434e\u22128'),
         Rational.parse('0.00000002176434'),
       );
-      expect(ExactMath.evaluate('1.380649e\u221223').isNegative, isFalse);
+      expect(ExactMath.evaluate('1.380649e\u221223').signum, greaterThan(0));
     });
 
     test('refuses what is not arithmetic', () {

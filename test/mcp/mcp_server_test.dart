@@ -56,12 +56,13 @@ String modernRequest(
 
 /// A request of the legacy era, without any `_meta`.
 String legacyRequest(Object id, String method, {Map<String, Object?>? params}) {
-  return json.encode({
+  final request = <String, Object?>{
     'jsonrpc': '2.0',
     'id': id,
     'method': method,
-    if (params != null) 'params': params,
-  });
+  };
+  if (params != null) request['params'] = params;
+  return json.encode(request);
 }
 
 /// Send one line and decode the single response.

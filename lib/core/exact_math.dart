@@ -131,7 +131,7 @@ abstract final class ExactMath {
     final fractionPart = places == 0
         ? ''
         : padded.substring(padded.length - places);
-    final sign = (signOf ?? value).isNegative ? '-' : '';
+    final sign = (signOf ?? value).signum < 0 ? '-' : '';
     return fractionPart.isEmpty
         ? '$sign$integerPart'
         : '$sign$integerPart.$fractionPart';

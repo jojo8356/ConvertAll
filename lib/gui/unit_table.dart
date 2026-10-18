@@ -274,6 +274,7 @@ class _UnitRow extends StatefulWidget {
   final VoidCallback onTap;
 
   const _UnitRow({
+    super.key,
     required this.unit,
     required this.layout,
     required this.height,

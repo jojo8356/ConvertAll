@@ -79,6 +79,12 @@ class CliRun {
   final int status;
   final String out;
   final String err;
+
+  /// Standard output split into non-empty lines.
+  List<String> get lines => out
+      .split('\n')
+      .where((line) => line.isNotEmpty)
+      .toList();
 }
 
 /// Run the tool and collect its output.

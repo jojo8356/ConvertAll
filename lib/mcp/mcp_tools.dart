@@ -19,10 +19,8 @@ import '../core/unit_json.dart';
 class ToolOutcome {
   /// A successful call: [text] is read by the model, [structured] matches the
   /// tool's `outputSchema` and is returned as `structuredContent`.
-  ToolOutcome.success(String text, {Map<String, Object?>? structured})
-    : text = text,
-      structured = structured,
-      errorCode = null,
+  ToolOutcome.success(this.text, {this.structured})
+    : errorCode = null,
       suggestions = const [];
 
   /// A failed call: the tool was found and the arguments were valid, but the
@@ -32,11 +30,10 @@ class ToolOutcome {
   /// and never as a protocol error, so that the model can read the message and
   /// correct itself.  [errorCode] is one of the [UnitErrorCode] values.
   ToolOutcome.failure(
-    String text, {
+    this.text, {
     this.errorCode,
     this.suggestions = const [],
-  }) : text = text,
-       structured = null;
+  }) : structured = null;
 
   /// Human readable result, or the explanation of the failure.
   final String text;
@@ -600,10 +597,12 @@ McpTool _getUnitInfoTool(ConversionEngine engine) {
           '${details.unit.isNonLinear ? ', non-linear' : ''}',
         );
         buffer.write('\nDefined as: ${details.unit.equiv}');
+        final factor = ConversionEngine.formatValue(
+          details.factor,
+          decimals: 12,
+        );
         buffer.write(
-          '\nBase units: ${details.reduced} '
-          '(multiplier ${ConversionEngine.formatValue(details.factor, '
-          'decimals: 12)})',
+          '\nBase units: ${details.reduced} (multiplier $factor)',
         );
         if (details.unit.comment.isNotEmpty) {
           buffer.write('\nComment: ${details.unit.comment}');

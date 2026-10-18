@@ -21,7 +21,6 @@ import 'dart:io' show IOSink, stderr, stdin, stdout;
 
 import '../core/conversion_engine.dart';
 import '../core/logging.dart';
-import '../core/number_notation.dart';
 import '../core/unit_exceptions.dart';
 import 'options.dart';
 

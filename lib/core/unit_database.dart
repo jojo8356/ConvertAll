@@ -435,6 +435,13 @@ class UnitDatabase {
   /// The number of units of a type (canonical or display name).
   int countOfType(String type) => unitsOfType(type).length;
 
+  /// The displayed type name for a canonical or displayed type name, or the
+  /// input when it cannot be resolved.
+  String displayTypeOf(String type) {
+    final matches = unitsOfType(type, limit: 1);
+    return matches.isEmpty ? type : matches.first.displayType;
+  }
+
   /// The canonical type name for a canonical or display type name, or the
   /// input when it cannot be resolved.
   String canonicalTypeOf(String type) {

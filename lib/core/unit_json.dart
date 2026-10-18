@@ -45,9 +45,9 @@ Map<String, Object?> errorToJson(
   String message, {
   String? code,
   List<String> suggestions = const [],
-}) => {
-  'ok': false,
-  'error': message,
-  if (code != null) 'error_code': code,
-  if (suggestions.isNotEmpty) 'suggestions': suggestions,
-};
+}) {
+  final result = <String, Object?>{'ok': false, 'error': message};
+  if (code != null) result['error_code'] = code;
+  if (suggestions.isNotEmpty) result['suggestions'] = suggestions;
+  return result;
+}

@@ -521,7 +521,7 @@ class UnitAtom implements UnitItem {
     if (negativeExp) {
       unitExp = -unitExp;
       if (isExpValid && partialExp != null) {
-        partialExp = partialExp!.replaceFirst('^-', '^');
+        partialExp = partialExp.replaceFirst('^-', '^');
       }
     }
     return UnitAtom._(
