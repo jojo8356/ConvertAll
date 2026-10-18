@@ -16,16 +16,16 @@ import '../l10n/l10n.dart';
 /// Preferred table dimensions at the application's normal window size.
 const tableWidth = 750.0;
 const minimumTableWidth = 432.0;
-const nameColWidth = 272.0;
-const typeColWidth = 150.0;
-const commentColWidth = 296.0;
+const nameColWidth = 230.0;
+const typeColWidth = 125.0;
+const commentColWidth = 363.0;
 const tableTrailingPadding = 20.0;
 const cellRightPadding = 12.0;
 const cellVerticalPadding = 5.0;
 
 /// Responsive widths shared by the header and every data row.
 ///
-/// At 750 logical pixels this preserves the historical 272/150/296 layout.
+/// At 750 logical pixels comments receive just over half of the usable width.
 /// Extra room primarily benefits comments, while a narrow window retains
 /// usable minimums for all three columns.
 @immutable
@@ -48,15 +48,15 @@ class UnitTableLayout {
         : tableWidth;
     final columnSpace =
         width - markerWidth - markerGap - tableTrailingPadding;
-    const minimumName = 160.0;
-    const minimumType = 100.0;
-    const minimumComment = 140.0;
+    const minimumName = 140.0;
+    const minimumType = 95.0;
+    const minimumComment = 165.0;
     final extra = math.max(0.0, columnSpace - 400.0);
     return UnitTableLayout._(
       width,
-      minimumName + extra * (112.0 / 318.0),
-      minimumType + extra * (50.0 / 318.0),
-      minimumComment + extra * (156.0 / 318.0),
+      minimumName + extra * (90.0 / 318.0),
+      minimumType + extra * (30.0 / 318.0),
+      minimumComment + extra * (198.0 / 318.0),
     );
   }
 }

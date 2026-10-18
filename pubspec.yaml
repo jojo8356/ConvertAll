@@ -101,6 +101,7 @@ flutter:
   assets:
     - assets/units.json
     - assets/units_fr.json
+    - assets/unit_comments_fr.json
     - assets/images/convertall_icon_48.png
     - assets/help/
     - assets/help/fr/

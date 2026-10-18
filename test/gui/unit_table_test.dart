@@ -21,9 +21,30 @@ void main() {
     expect(normal.nameWidth, closeTo(nameColWidth, 0.01));
     expect(normal.typeWidth, closeTo(typeColWidth, 0.01));
     expect(normal.commentWidth, closeTo(commentColWidth, 0.01));
+    expect(normal.commentWidth, greaterThan(normal.nameWidth));
+    expect(normal.commentWidth, greaterThan(normal.width * 0.45));
     expect(wide.commentWidth, greaterThan(normal.commentWidth));
     expect(narrow.width, minimumTableWidth);
-    expect(narrow.commentWidth, greaterThanOrEqualTo(140.0));
+    expect(narrow.commentWidth, greaterThanOrEqualTo(165.0));
+  });
+
+  test('unit metadata translates types and comments independently', () {
+    final item = <String, dynamic>{
+      'name': 'versta',
+      'type': 'length',
+      'equiv': '3500 ft',
+      'comment': 'Russian unit',
+    };
+
+    translateUnitMetadata(
+      item,
+      const {'length': 'longueur'},
+      const {'Russian unit': 'unité russe'},
+    );
+
+    expect(item['name'], 'versta');
+    expect(item['type'], 'longueur');
+    expect(item['comment'], 'unité russe');
   });
 
   test('comment height accounts for wrapping and accessible text scaling', () {

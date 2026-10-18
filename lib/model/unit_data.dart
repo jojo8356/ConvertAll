@@ -47,12 +47,20 @@ class UnitData {
                 await rootBundle.loadString('assets/units_$language.json'),
               )
               as Map<String, dynamic>;
+    final commentNames = language == 'en'
+        ? const <String, dynamic>{}
+        : json.decode(
+                await rootBundle.loadString(
+                  'assets/unit_comments_$language.json',
+                ),
+              )
+              as Map<String, dynamic>;
     final typeSet = <String>{};
     final List<dynamic> dataList = json.decode(
       await rootBundle.loadString('assets/units.json'),
     );
     for (var item in dataList) {
-      _translateType(item, typeNames);
+      translateUnitMetadata(item, typeNames, commentNames);
       final unit = UnitDatum(item);
       unitList.add(unit);
       unitMap[unit.name.toLowerCase().replaceAll(' ', '')] = unit;
@@ -60,14 +68,6 @@ class UnitData {
     }
     typeList.addAll(typeSet);
     typeList.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-  }
-
-  /// Replace the type name in [item] with its translation from [typeNames].
-  void _translateType(dynamic item, Map<String, dynamic> typeNames) {
-    final type = item['type'];
-    if (type is String && typeNames.containsKey(type)) {
-      item['type'] = typeNames[type];
-    }
   }
 
   /// Return an exact match for the given unit name.
@@ -93,6 +93,25 @@ class UnitData {
   /// Stop filering by unit type.
   void endFilter() {
     filteredUnits.clear();
+  }
+}
+
+/// Translate the user-facing metadata while keeping unit names and equations
+/// stable so expressions continue to work in every language.
+void translateUnitMetadata(
+  dynamic item,
+  Map<String, dynamic> typeNames,
+  Map<String, dynamic> commentNames,
+) {
+  final type = item['type'];
+  if (type is String) {
+    final translatedType = typeNames[type];
+    if (translatedType is String) item['type'] = translatedType;
+  }
+  final comment = item['comment'];
+  if (comment is String) {
+    final translatedComment = commentNames[comment];
+    if (translatedComment is String) item['comment'] = translatedComment;
   }
 }
 
