@@ -1,3 +1,4 @@
+import 'package:convertall/gui/frame_view.dart';
 import 'package:convertall/gui/unit_table.dart';
 import 'package:convertall/l10n/app_localizations.dart';
 import 'package:convertall/model/unit_controller.dart';
@@ -11,6 +12,17 @@ void main() {
 
   tearDown(() {
     UnitController.unitData.reset();
+  });
+
+  test('wide windows keep fixed margins and give their width to the table', () {
+    expect(contentSideMarginForWidth(1000.0), contentSideMargin);
+    expect(contentSideMarginForWidth(1500.0), contentSideMargin);
+    expect(contentSideMarginForWidth(520.0), 44.0);
+
+    final normalTableWidth = 1000.0 - 2 * contentSideMarginForWidth(1000.0);
+    final wideTableWidth = 1500.0 - 2 * contentSideMarginForWidth(1500.0);
+    expect(wideTableWidth - normalTableWidth, 500.0);
+    expect(normalTableWidth, greaterThanOrEqualTo(minimumTableWidth));
   });
 
   test('responsive layout gives spare width to the comments column', () {

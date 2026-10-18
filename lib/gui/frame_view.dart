@@ -22,8 +22,16 @@ import 'unit_text_editor.dart';
 import 'unit_value_editor.dart';
 import '../l10n/l10n.dart';
 
-/// Maximum width of the conversion layout.
-const _contentWidth = 782.0;
+/// Stable side margin once the window is wide enough.
+const contentSideMargin = 128.0;
+
+/// Keep the normal margin fixed while preserving the table's minimum width in
+/// a compact window.
+double contentSideMarginForWidth(double width) {
+  return ((width - minimumTableWidth) / 2)
+      .clamp(AppTheme.gapL, contentSideMargin)
+      .toDouble();
+}
 
 /// Space taken by the swap button between the two unit panels.
 const _centerGap = 64.0;
@@ -204,32 +212,31 @@ class _FrameViewState extends State<FrameView> with WindowListener {
             ],
           ),
           body: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _contentWidth),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppTheme.gapL,
-                      AppTheme.gapL,
-                      AppTheme.gapL,
-                      AppTheme.gapM,
-                    ),
-                    child: Column(
-                      children: <Widget>[
-                        _unitsRow(model),
-                        const SizedBox(height: AppTheme.gapM),
-                        Expanded(child: _tablePanel(context, model)),
-                        const SizedBox(height: AppTheme.gapM),
-                        _valuesRow(),
-                        const SizedBox(height: AppTheme.gapM),
-                        _statusBar(context, model),
-                      ],
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final sideMargin = contentSideMarginForWidth(
+                  constraints.maxWidth,
+                );
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    sideMargin,
+                    AppTheme.gapL,
+                    sideMargin,
+                    AppTheme.gapM,
                   ),
-                ),
-              ),
+                  child: Column(
+                    children: <Widget>[
+                      _unitsRow(model),
+                      const SizedBox(height: AppTheme.gapM),
+                      Expanded(child: _tablePanel(context, model)),
+                      const SizedBox(height: AppTheme.gapM),
+                      _valuesRow(),
+                      const SizedBox(height: AppTheme.gapM),
+                      _statusBar(context, model),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         );
